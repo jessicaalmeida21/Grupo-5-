@@ -1,5 +1,5 @@
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Inter', Arial, sans-serif;
   background: #f4f6f9;
   padding: 20px;
   color: #000;
@@ -228,4 +228,93 @@ body.dark-mode #configuracao select {
   background-color: #555 !important;
   color: #eee !important;
   border-color: #888 !important;
+}
+
+/* Hero de login inspirado em Clear */
+.login-hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0c1b33 0%, #142850 35%, #27496d 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 28px;
+}
+
+.login-card h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0c1b33;
+  margin: 0 0 6px 0;
+}
+
+.login-card h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4f5b66;
+  margin: 0 0 16px 0;
+}
+
+.login-form label {
+  display: block;
+  font-size: 12px;
+  color: #4f5b66;
+  margin: 10px 0 6px 0;
+}
+
+.login-form input[type="text"],
+.login-form input[type="password"] {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0 12px;
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.login-form input[type="text"]:focus,
+.login-form input[type="password"]:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.login-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.login-actions .btn-primary {
+  flex: 1;
+  height: 42px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.login-actions .btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.login-meta {
+  margin-top: 10px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* Responsividade para o login */
+@media (max-width: 480px) {
+  .login-card { padding: 20px; border-radius: 10px; }
 }

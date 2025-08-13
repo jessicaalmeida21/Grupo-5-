@@ -3,50 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <title>E2E Treinamentos - Home Broker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="container">
-          <div id="login">
-      <h1>E2E Treinamentos Brokers</h1>
-      <h2>Login</h2>
-      <p>Use:</p>
-      <ul>
-        <li>CPF: <b>111.111.111-11</b> | Senha: <b>123</b> → Conta A</li>
-        <li>CPF: <b>222.222.222-22</b> | Senha: <b>456</b> → Conta B</li>
-      </ul>
-      <label>CPF: <input type="text" id="cpf" placeholder="111.111.111-11" /></label><br />
-      <label>Senha:
-        <span class="senha-wrapper">
-          <input type="password" id="senha" placeholder="123" />
-          <span class="toggleSenha" onclick="toggleSenha('senha', this)">👁️</span>
-        </span>
-      </label><br />
-      <button class="btn-azul" onclick="login()">Entrar</button>
-      <div id="loginMsg" class="error"></div>
-
-      <hr />
-      <h2>Cadastrar nova conta</h2>
-      <label>Nome: <input type="text" id="nomeCadastro" placeholder="Seu nome" /></label><br />
-      <label>CPF: <input type="text" id="cpfCadastro" placeholder="000.000.000-00" /></label><br />
-      <label>Whatsapp: <input type="text" id="whatsappCadastro" placeholder="(00) 90000-0000" /></label><br />
-      <label>Email: <input type="email" id="emailCadastro" placeholder="voce@exemplo.com" /></label><br />
-      <label>Senha:
-        <span class="senha-wrapper">
-          <input type="password" id="senhaCadastro" placeholder="Senha" />
-          <span class="toggleSenha" onclick="toggleSenha('senhaCadastro', this)">👁️</span>
-        </span>
-      </label><br />
-      <label>Confirme a Senha:
-        <span class="senha-wrapper">
-          <input type="password" id="confirmarSenhaCadastro" placeholder="Confirme a senha" />
-          <span class="toggleSenha" onclick="toggleSenha('confirmarSenhaCadastro', this)">👁️</span>
-        </span>
-      </label><br />
-      <button class="btn-azul" onclick="cadastrarUsuario()">Cadastrar</button>
-      <div id="cadastroMsg" class="success"></div>
-    </div>
+		<div id="login" class="login-hero">
+			<div class="login-card">
+				<h1>E2E Treinamentos Brokers</h1>
+				<h2>Faça seu login para continuar</h2>
+				<div class="login-form">
+					<label>CPF</label>
+					<input type="text" id="cpf" placeholder="111.111.111-11" />
+					<label>Senha</label>
+					<span class="senha-wrapper" style="width:100%">
+						<input type="password" id="senha" placeholder="123" style="width:100%" />
+						<span class="toggleSenha" onclick="toggleSenha('senha', this)">👁️</span>
+					</span>
+					<div class="login-actions">
+						<button class="btn-primary" onclick="login()">Entrar</button>
+					</div>
+					<div id="loginMsg" class="error login-meta"></div>
+					<div class="login-meta" style="margin-top:12px">
+						Use: CPF <b>111.111.111-11</b> / Senha <b>123</b> (Conta A) — ou CPF <b>222.222.222-22</b> / Senha <b>456</b> (Conta B)
+					</div>
+					<hr />
+					<h2 style="margin-top:10px">Cadastrar nova conta</h2>
+					<label>Nome</label>
+					<input type="text" id="nomeCadastro" placeholder="Seu nome" />
+					<label>CPF</label>
+					<input type="text" id="cpfCadastro" placeholder="000.000.000-00" />
+					<label>Whatsapp</label>
+					<input type="text" id="whatsappCadastro" placeholder="(00) 90000-0000" />
+					<label>Email</label>
+					<input type="email" id="emailCadastro" placeholder="voce@exemplo.com" />
+					<label>Senha</label>
+					<span class="senha-wrapper" style="width:100%">
+						<input type="password" id="senhaCadastro" placeholder="Senha" style="width:100%" />
+						<span class="toggleSenha" onclick="toggleSenha('senhaCadastro', this)">👁️</span>
+					</span>
+					<label>Confirme a Senha</label>
+					<span class="senha-wrapper" style="width:100%">
+						<input type="password" id="confirmarSenhaCadastro" placeholder="Confirme a senha" style="width:100%" />
+						<span class="toggleSenha" onclick="toggleSenha('confirmarSenhaCadastro', this)">👁️</span>
+					</span>
+					<div class="login-actions">
+						<button class="btn-primary" onclick="cadastrarUsuario()">Cadastrar</button>
+						<div id="cadastroMsg" class="success"></div>
+					</div>
+				</div>
+			</div>
+		</div>
 
     <div id="portal" class="hidden">
       <button id="logoutBtn" onclick="logout()">Sair</button>

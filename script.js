@@ -50,6 +50,7 @@ function login() {
     document.getElementById('login').classList.add('hidden');
     document.getElementById('portal').classList.remove('hidden');
     document.getElementById('configuracao').classList.remove('hidden');
+    document.body.classList.remove('login-hero');
     atualizarCarteira();
     atualizarBook();
     preencherSelectAtivos();
@@ -78,6 +79,7 @@ function logout() {
   document.getElementById('mensagem').innerText = "";
   document.getElementById('senhaMsg').innerText = "";
   document.getElementById('loginMsg').innerText = "";
+  document.body.classList.add('login-hero');
 }
 
 // Função de alternar visibilidade da senha
@@ -123,6 +125,7 @@ try {
     var select = document.getElementById('layout');
     if (select) { select.value = preferido; }
     aplicarLayout(preferido);
+    document.body.classList.add('login-hero');
   });
 } catch (e) {}
 
