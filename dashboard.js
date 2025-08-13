@@ -169,86 +169,117 @@
 	function preencherSelectAtivosGrafico(){ const select=document.getElementById('ativoGrafico'); if(!select) return; select.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; opt.textContent=ativo; select.appendChild(opt); } const primeiro=Object.keys(ativosB3)[0]; select.value=primeiro; ativoGraficoAtual = primeiro; }
 	let simpleCanvasCtx = null;
 
-	// Desenha com Canvas2D (fallback sem Chart.js)
-	function desenharSimples(labels, valores){
+	// Desenha candles diários em Canvas2D
+	function desenharCandlesDiarios(labels, candles){
 		if(!simpleCanvasCtx) return;
 		const ctx = simpleCanvasCtx;
-		const w = ctx.canvas.width;
-		const h = ctx.canvas.height;
+		const canvas = ctx.canvas;
+		const w = canvas.width;
+		const h = canvas.height;
 		ctx.clearRect(0,0,w,h);
-		if(valores.length<1) return;
-		const vmin = Math.min(...valores);
-		const vmax = Math.max(...valores);
-		const pad = 10;
-		const toX = (i)=> (i/(valores.length-1)) * (w - pad*2) + pad;
-		const toY = (v)=> h - pad - ((v - vmin) / Math.max(1e-6, (vmax-vmin))) * (h - pad*2);
-		ctx.lineWidth = 2;
-		ctx.strokeStyle = 'rgba(46,134,193,1)';
-		ctx.beginPath();
-		ctx.moveTo(toX(0), toY(valores[0]));
-		for(let i=1;i<valores.length;i++) ctx.lineTo(toX(i), toY(valores[i]));
-		ctx.stroke();
+		if(!candles.length) return;
+
+		const padX = 40;
+		const padY = 20;
+		const plotW = Math.max(1, w - padX*2);
+		const plotH = Math.max(1, h - padY*2);
+
+		let minP = Infinity, maxP = -Infinity;
+		for(const c of candles){ minP = Math.min(minP, c.l); maxP = Math.max(maxP, c.h);} 
+		if(!isFinite(minP) || !isFinite(maxP)) return;
+		const range = Math.max(1e-6, maxP - minP);
+		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
+		const toY = (v)=> padY + (maxP - v) / range * plotH;
+
+		// gridlines horizontais
+		ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+		ctx.lineWidth = 1;
+		for(let g=0; g<=4; g++){
+			const y = padY + g*(plotH/4);
+			ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w-padX, y); ctx.stroke();
+		}
+
+		// eixos labels simples (min/max)
+		ctx.fillStyle = '#6b7280';
+		ctx.font = '12px Inter, Arial, sans-serif';
+		ctx.fillText(maxP.toFixed(2), 4, toY(maxP)+4);
+		ctx.fillText(minP.toFixed(2), 4, toY(minP)+4);
+
+		const candleW = Math.max(6, (plotW / candles.length) * 0.6);
+		const wickColor = '#111827';
+		for(let i=0;i<candles.length;i++){
+			const { o,h:hi,l:lo,c } = candles[i];
+			const up = c >= o;
+			const x = toX(i);
+			const yO = toY(o);
+			const yC = toY(c);
+			const yH = toY(hi);
+			const yL = toY(lo);
+			const bodyTop = Math.min(yO, yC);
+			const bodyH = Math.max(2, Math.abs(yO - yC));
+			// wick
+			ctx.strokeStyle = wickColor;
+			ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+			// body
+			ctx.fillStyle = up ? 'rgba(22,163,74,0.7)' : 'rgba(239,68,68,0.7)';
+			ctx.strokeStyle = up ? '#166534' : '#991b1b';
+			ctx.lineWidth = 1;
+			ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
+			ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
+			// x labels
+			ctx.fillStyle = '#6b7280';
+			ctx.textAlign = 'center';
+			ctx.fillText(labels[i], x, h-4);
+		}
 	}
 
-	// Simples gráfico de linha (modo anterior)
+	function agruparOHLCporDia(ativo){
+		const pontos = historicoCotacoes[ativo] || [];
+		if(!pontos.length) return { labels: [], candles: [] };
+		// ordenar por ts crescente
+		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
+		const map = new Map(); // key dia -> {o,h,l,c}
+		for(const p of ordenados){
+			const d = new Date(p.ts); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, ts:p.ts });
+			else {
+				const o = map.get(key);
+				o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco;
+			}
+		}
+		const keys = Array.from(map.keys()).sort();
+		const labels = keys.map(k=>{ const [y,m,dd]=k.split('-'); return `${dd}/${m}`; });
+		const candles = keys.map(k=> map.get(k));
+		return { labels, candles };
+	}
+
+	// Simples gráfico de linha (modo anterior) -> substituído por candles diários em Canvas
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
 		const selectAtivo = document.getElementById('ativoGrafico');
-		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectAtivo) {
-			selectAtivo.addEventListener('change', () => {
-				ativoGraficoAtual = selectAtivo.value;
-				atualizarGraficoCotacao();
-			});
+			selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		}
-		if (selectRes) {
-			selectRes.addEventListener('change', () => {
-				resolucaoMinutosAtual = parseInt(selectRes.value, 10);
-				atualizarGraficoCotacao();
-			});
-			resolucaoMinutosAtual = parseInt(selectRes.value, 10);
-		}
-		const ctx = canvas.getContext('2d');
-		if (typeof Chart !== 'undefined'){
-			if (graficoCotacaoInstance) graficoCotacaoInstance.destroy();
-			graficoCotacaoInstance = new Chart(ctx, {
-				type: 'line',
-				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: false, tension: 0.15, pointRadius: 2 }] },
-				options: { responsive: true, animation: false, scales: { y: { beginAtZero: false }, x: { ticks: { maxRotation: 0 } } }, plugins: { legend: { display: true } } }
-			});
-		} else {
-			simpleCanvasCtx = ctx;
-		}
+		const selectRes = document.getElementById('resolucaoGrafico');
+		if (selectRes) selectRes.disabled = true; // não usado para diário
+		simpleCanvasCtx = canvas.getContext('2d');
+		// garantir ativo padrão
+		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		registrarHistoricoCotacao();
 		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
 		atualizarGraficoCotacao();
 	}
+
+	function atualizarGraficoCotacao(){
+		if(!simpleCanvasCtx){ return; }
+		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
+		if(!ativoGraficoAtual) return;
+		const { labels, candles } = agruparOHLCporDia(ativoGraficoAtual);
+		desenharCandlesDiarios(labels.slice(-10), candles.slice(-10));
+	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
-	function agruparHistorico(ativo, resolucaoMin){
-		const pontos=historicoCotacoes[ativo]||[];
-		if(pontos.length===0) return { labels:[], valores:[] };
-		const bucketMs=resolucaoMin*60*1000;
-		const buckets=new Map();
-		for(const p of pontos){
-			const chave=Math.floor(p.ts/bucketMs)*bucketMs;
-			if(!buckets.has(chave)){
-				buckets.set(chave, { soma:0, qtd:0, ultimo:p.preco });
-			}
-			const b=buckets.get(chave);
-			b.soma+=p.preco; b.qtd+=1; b.ultimo=p.preco;
-		}
-		const chavesOrdenadas=Array.from(buckets.keys()).sort((a,b)=>a-b);
-		// Fallback: se só há 1 bucket, retornar pontos brutos com HH:MM:SS
-		if (chavesOrdenadas.length<=1){
-			const ultimos = pontos.slice(-Math.min(30, pontos.length));
-			return { labels: ultimos.map(p=>formatarHoraMinutoSeg(new Date(p.ts))), valores: ultimos.map(p=>p.preco) };
-		}
-		const labels=chavesOrdenadas.map(ts=>formatarHoraMinuto(new Date(ts)));
-		const valores=chavesOrdenadas.map(ts=>buckets.get(ts).ultimo);
-		return { labels, valores };
-	}
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
 	function agruparOHLC(valores, resolucaoMin){
