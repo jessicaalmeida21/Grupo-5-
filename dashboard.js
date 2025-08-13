@@ -214,10 +214,45 @@
 		atualizarGraficoCotacao();
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
+	function agruparOHLCFromHistorico(ativo, resolucaoMin){
+		const pontos = historicoCotacoes[ativo] || [];
+		if (!pontos.length) return { labels: [], ohlc: [], volume: [] };
+		const bucketMs = resolucaoMin * 60 * 1000;
+		const buckets = new Map();
+		for (const p of pontos) {
+			const key = Math.floor(p.ts / bucketMs) * bucketMs;
+			let b = buckets.get(key);
+			if (!b) { b = { t: key, o: p.preco, h: p.preco, l: p.preco, c: p.preco, count: 1 }; buckets.set(key, b); continue; }
+			// atualiza OHLC
+			if (b.count === 1) { b.c = p.preco; } else { b.c = p.preco; }
+			if (p.preco > b.h) b.h = p.preco;
+			if (p.preco < b.l) b.l = p.preco;
+			b.count += 1;
+		}
+		const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
+		const labels = keys;
+		const ohlc = keys.map(k => { const b = buckets.get(k); return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c }; });
+		const volume = keys.map(k => buckets.get(k).count);
+		return { labels, ohlc, volume };
+	}
 	function atualizarGraficoCotacao(){
 		if(!priceChart || !ativoGraficoAtual) return;
-		const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-		const { labels: l2, ohlc, volume } = agruparOHLC(valores, resolucaoMinutosAtual);
+		const { labels: l2, ohlc, volume } = agruparOHLCFromHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
+		if(!ohlc.length){
+			priceChart.data.labels = [];
+			priceChart.data.datasets = [];
+			priceChart.update();
+			volumeChart.data.labels = [];
+			volumeChart.data.datasets[0].data = [];
+			volumeChart.update();
+			rsiChart.data.labels = [];
+			rsiChart.data.datasets[0].data = [];
+			rsiChart.update();
+			macdChart.data.labels = [];
+			macdChart.data.datasets.forEach(d=>d.data = []);
+			macdChart.update();
+			return;
+		}
 		const closes = ohlc.map(c=>c.c);
 		const ema9 = calcularEMA(closes, 9);
 		const ema21 = calcularEMA(closes, 21);
