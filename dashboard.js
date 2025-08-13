@@ -75,14 +75,8 @@
 
 	function registrarPluginsFinanceiros(){
 		try {
-			if (window.Chart) {
-				// Registra tudo que o pacote fornece; evita dependências faltando
-				if (window['chartjs-chart-financial']) {
-					Chart.register(window['chartjs-chart-financial']);
-				}
-				if (window['chartjs-plugin-annotation']) {
-					Chart.register(window['chartjs-plugin-annotation']);
-				}
+			if (window.ChartAnnotation) {
+				Chart.register(window.ChartAnnotation);
 			}
 		} catch(e) { /* no-op */ }
 	}
@@ -190,7 +184,7 @@
 		});
 
 		const grid = { color: 'rgba(0,0,0,0.06)' };
-		const commonOpts = { animation:false, responsive:true, scales:{ x:{ grid }, y:{ grid } }, plugins:{ legend:{ display:false } } };
+		const commonOpts = { animation:false, responsive:true, parsing:false, scales:{ x:{ type:'time', grid }, y:{ grid } }, plugins:{ legend:{ display:false } } };
 
 		if(priceChart) priceChart.destroy();
 		try {
@@ -261,15 +255,17 @@
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
 	function agruparOHLC(valores, resolucaoMin){
-		// Gera OHLC sintético a partir de valores (close-to-close), apenas para demo
 		let labels=[], ohlc=[], volume=[];
+		const agora = Date.now();
+		const step = resolucaoMin*60*1000;
 		for(let i=0;i<valores.length;i++){
+			const t = agora - (valores.length-i)*step;
 			const open = i>0 ? valores[i-1] : valores[i];
 			const close = valores[i];
 			const high = Math.max(open, close) + Math.random()*0.2;
 			const low = Math.min(open, close) - Math.random()*0.2;
-			labels.push(i);
-			ohlc.push({ o:open, h:high, l:low, c:close });
+			labels.push(t);
+			ohlc.push({ t, o:open, h:high, l:low, c:close });
 			volume.push( Math.round(100 + Math.random()*900) );
 		}
 		return { labels, ohlc, volume };
