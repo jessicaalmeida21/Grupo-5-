@@ -174,18 +174,19 @@
 		if(!simpleCanvasCtx) return;
 		const ctx = simpleCanvasCtx;
 		const canvas = ctx.canvas;
-		const w = canvas.width;
-		const h = canvas.height;
+		const w = canvas.clientWidth || canvas.width;
+		const h = canvas.clientHeight || canvas.height;
 		ctx.clearRect(0,0,w,h);
 		if(!candles.length) return;
 
 		const isDark = document.body.classList.contains('dark-mode');
 		const textColor = isDark ? '#e5e7eb' : '#374151';
 		const gridColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+		const axisColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
 		const wickBase = isDark ? '#e5e7eb' : '#111827';
 
 		const padX = 48;
-		const padY = 20;
+		const padY = 24;
 		const plotW = Math.max(1, w - padX*2);
 		const plotH = Math.max(1, h - padY*2);
 
@@ -196,9 +197,14 @@
 		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
 		const toY = (v)=> padY + (maxP - v) / range * plotH;
 
+		// Eixos X e Y
+		ctx.strokeStyle = axisColor;
+		ctx.lineWidth = 1;
+		ctx.beginPath(); ctx.moveTo(padX, padY); ctx.lineTo(padX, h - padY); ctx.stroke(); // Y
+		ctx.beginPath(); ctx.moveTo(padX, h - padY); ctx.lineTo(w - padX, h - padY); ctx.stroke(); // X
+
 		// gridlines horizontais + rótulos de preço
 		ctx.strokeStyle = gridColor;
-		ctx.lineWidth = 1;
 		ctx.fillStyle = textColor;
 		ctx.font = '12px Inter, Arial, sans-serif';
 		ctx.textAlign = 'left';
@@ -240,7 +246,7 @@
 		for(let i=0;i<candles.length;i++){
 			if (i % step !== 0 && i !== candles.length-1) continue;
 			const x = toX(i);
-			ctx.fillText(labels[i], x, h-4);
+			ctx.fillText(labels[i], x, h - padY + 16);
 		}
 	}
 
