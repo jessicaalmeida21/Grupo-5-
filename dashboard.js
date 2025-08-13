@@ -167,125 +167,36 @@
 	window.alterarSenha = function(){ const novaSenha=document.getElementById('novaSenha').value.trim(); if(novaSenha.length<3){ document.getElementById('senhaMsg').innerText = 'A nova senha deve ter pelo menos 3 caracteres.'; return; } const cpf = usuarioAtual?.cpf; if(!cpf){ document.getElementById('senhaMsg').innerText='Erro: usuário não autenticado.'; return; } usuarios[cpf].senha = novaSenha; HBShared.setUsuarios(usuarios); document.getElementById('senhaMsg').innerText='Senha alterada com sucesso!'; document.getElementById('novaSenha').value=''; }
 
 	function preencherSelectAtivosGrafico(){ const select=document.getElementById('ativoGrafico'); if(!select) return; select.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; opt.textContent=ativo; select.appendChild(opt); } const primeiro=Object.keys(ativosB3)[0]; select.value=primeiro; ativoGraficoAtual = primeiro; }
+	// Simples gráfico de linha (modo anterior)
 	function inicializarGraficoCotacao(){
-		const priceCanvas = document.getElementById('graficoPreco');
-		const volCanvas = document.getElementById('graficoVolume');
-		const rsiCanvas = document.getElementById('graficoRSI');
-		const macdCanvas = document.getElementById('graficoMACD');
-		if(!priceCanvas) return;
-
-		// listeners
-		const selectAtivo=document.getElementById('ativoGrafico');
-		const selectRes=document.getElementById('resolucaoGrafico');
-		if(selectAtivo){ selectAtivo.addEventListener('change', ()=>{ ativoGraficoAtual=selectAtivo.value; atualizarGraficoCotacao(); }); }
-		if(selectRes){ selectRes.addEventListener('change', ()=>{ resolucaoMinutosAtual=parseInt(selectRes.value,10); atualizarGraficoCotacao(); }); resolucaoMinutosAtual=parseInt(selectRes.value,10); }
-		['toggleEMA9','toggleEMA21','toggleSMA50','toggleBB','toggleVolume','toggleMACD'].forEach(id=>{
-			const el=document.getElementById(id); if(el){ el.addEventListener('change', atualizarGraficoCotacao); }
-		});
-
-		const grid = { color: 'rgba(0,0,0,0.06)' };
-		const commonOpts = { animation:false, responsive:true, parsing:false, scales:{ x:{ type:'time', grid }, y:{ grid } }, plugins:{ legend:{ display:false } } };
-
-		if(priceChart) priceChart.destroy();
-		try {
-			priceChart = new Chart(priceCanvas.getContext('2d'), {
-				type: 'candlestick',
-				data: { datasets: [] },
-				options: {
-					...commonOpts,
-					plugins:{ ...commonOpts.plugins, annotation:{ annotations: {} } }
-				}
-			});
-		} catch(err) {
-			priceChart = new Chart(priceCanvas.getContext('2d'), {
-				type: 'ohlc',
-				data: { datasets: [] },
-				options: { ...commonOpts }
+		const canvas = document.getElementById('graficoCotacao');
+		if (!canvas) return;
+		const selectAtivo = document.getElementById('ativoGrafico');
+		const selectRes = document.getElementById('resolucaoGrafico');
+		if (selectAtivo) {
+			selectAtivo.addEventListener('change', () => {
+				ativoGraficoAtual = selectAtivo.value;
+				atualizarGraficoCotacao();
 			});
 		}
-		if(volumeChart) volumeChart.destroy();
-		volumeChart = new Chart(volCanvas.getContext('2d'), { type:'bar', data:{ labels:[], datasets:[{ label:'Volume', data:[], backgroundColor:'rgba(22,163,74,0.35)' }]}, options:{ ...commonOpts, scales:{ x:{ grid }, y:{ grid, beginAtZero:true } } }});
-		if(rsiChart) rsiChart.destroy();
-		rsiChart = new Chart(rsiCanvas.getContext('2d'), { type:'line', data:{ labels:[], datasets:[{ label:'RSI', data:[], borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,0.15)', fill:true, tension:0.2 }]}, options:{ ...commonOpts, plugins:{ ...commonOpts.plugins, annotation:{ annotations:{ rsi70:{ type:'line', yMin:70, yMax:70, borderColor:'#ef4444', borderWidth:1, borderDash:[6,4] }, rsi30:{ type:'line', yMin:30, yMax:30, borderColor:'#10b981', borderWidth:1, borderDash:[6,4] } } } }, scales:{ y:{ min:0, max:100, grid } } }});
-		if(macdChart) macdChart.destroy();
-		macdChart = new Chart(macdCanvas.getContext('2d'), { type:'bar', data:{ labels:[], datasets:[{ label:'Hist', data:[], backgroundColor:(ctx)=> (ctx.raw>=0?'rgba(22,163,74,0.5)':'rgba(239,68,68,0.5)') },{ label:'MACD', type:'line', data:[], borderColor:'#16a34a' },{ label:'Signal', type:'line', data:[], borderColor:'#ef4444' }]}, options:{ ...commonOpts } });
-
+		if (selectRes) {
+			selectRes.addEventListener('change', () => {
+				resolucaoMinutosAtual = parseInt(selectRes.value, 10);
+				atualizarGraficoCotacao();
+			});
+			resolucaoMinutosAtual = parseInt(selectRes.value, 10);
+		}
+		const ctx = canvas.getContext('2d');
+		if (graficoCotacaoInstance) graficoCotacaoInstance.destroy();
+		graficoCotacaoInstance = new Chart(ctx, {
+			type: 'line',
+			data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: true, tension: 0.15, pointRadius: 0 }] },
+			options: { responsive: true, animation: false, scales: { y: { beginAtZero: false }, x: { ticks: { maxRotation: 0 } } }, plugins: { legend: { display: true } } }
+		});
 		registrarHistoricoCotacao();
 		atualizarGraficoCotacao();
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
-	function agruparOHLCFromHistorico(ativo, resolucaoMin){
-		const pontos = historicoCotacoes[ativo] || [];
-		if (!pontos.length) return { labels: [], ohlc: [], volume: [] };
-		const bucketMs = resolucaoMin * 60 * 1000;
-		const buckets = new Map();
-		for (const p of pontos) {
-			const key = Math.floor(p.ts / bucketMs) * bucketMs;
-			let b = buckets.get(key);
-			if (!b) { b = { t: key, o: p.preco, h: p.preco, l: p.preco, c: p.preco, count: 1 }; buckets.set(key, b); continue; }
-			// atualiza OHLC
-			if (b.count === 1) { b.c = p.preco; } else { b.c = p.preco; }
-			if (p.preco > b.h) b.h = p.preco;
-			if (p.preco < b.l) b.l = p.preco;
-			b.count += 1;
-		}
-		const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
-		const labels = keys;
-		const ohlc = keys.map(k => { const b = buckets.get(k); return { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c }; });
-		const volume = keys.map(k => buckets.get(k).count);
-		return { labels, ohlc, volume };
-	}
-	function atualizarGraficoCotacao(){
-		if(!priceChart || !ativoGraficoAtual) return;
-		const { labels: l2, ohlc, volume } = agruparOHLCFromHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-		if(!ohlc.length){
-			priceChart.data.labels = [];
-			priceChart.data.datasets = [];
-			priceChart.update();
-			volumeChart.data.labels = [];
-			volumeChart.data.datasets[0].data = [];
-			volumeChart.update();
-			rsiChart.data.labels = [];
-			rsiChart.data.datasets[0].data = [];
-			rsiChart.update();
-			macdChart.data.labels = [];
-			macdChart.data.datasets.forEach(d=>d.data = []);
-			macdChart.update();
-			return;
-		}
-		const closes = ohlc.map(c=>c.c);
-		const ema9 = calcularEMA(closes, 9);
-		const ema21 = calcularEMA(closes, 21);
-		const sma50 = calcularSMA(closes, 50);
-		const bb = calcularBB(closes, 20, 2);
-
-		priceChart.data.labels = l2;
-		const candleDataset = { label:'Preço', data: ohlc, type: priceChart.config.type, borderColor:'#111827', color:{ up:'#16a34a', down:'#ef4444', unchanged:'#9ca3af' }, barThickness: 6 };
-		priceChart.data.datasets = [ candleDataset ];
-		if(document.getElementById('toggleEMA9')?.checked){ priceChart.data.datasets.push({ label:'EMA 9', type:'line', data: ema9, borderColor:'#22c55e', borderWidth:1.2, pointRadius:0 }); }
-		if(document.getElementById('toggleEMA21')?.checked){ priceChart.data.datasets.push({ label:'EMA 21', type:'line', data: ema21, borderColor:'#10b981', borderWidth:1.2, pointRadius:0 }); }
-		if(document.getElementById('toggleSMA50')?.checked){ priceChart.data.datasets.push({ label:'SMA 50', type:'line', data: sma50, borderColor:'#6b7280', borderWidth:1.2, pointRadius:0 }); }
-		if(document.getElementById('toggleBB')?.checked){ priceChart.data.datasets.push({ label:'BB Upper', type:'line', data: bb.upper, borderColor:'rgba(107,114,128,0.8)', borderDash:[4,3], pointRadius:0 }); priceChart.data.datasets.push({ label:'BB Middle', type:'line', data: bb.middle, borderColor:'rgba(156,163,175,0.8)', pointRadius:0 }); priceChart.data.datasets.push({ label:'BB Lower', type:'line', data: bb.lower, borderColor:'rgba(107,114,128,0.8)', borderDash:[4,3], pointRadius:0 }); }
-		priceChart.update();
-
-		if(document.getElementById('toggleVolume')?.checked){
-			volumeChart.data.labels = l2;
-			volumeChart.data.datasets[0].data = volume;
-			volumeChart.update();
-		} else { volumeChart.data.labels=[]; volumeChart.data.datasets[0].data=[]; volumeChart.update(); }
-
-		const rsi = calcularRSI(closes, 14);
-		rsiChart.data.labels=l2; rsiChart.data.datasets[0].data=rsi; rsiChart.update();
-
-		const macd = calcularMACD(closes);
-		if(document.getElementById('toggleMACD')?.checked){
-			macdChart.data.labels=l2;
-			macdChart.data.datasets[0].data=macd.hist;
-			macdChart.data.datasets[1].data=macd.macd;
-			macdChart.data.datasets[2].data=macd.signal;
-			macdChart.update();
-		} else { macdChart.data.labels=[]; macdChart.data.datasets.forEach(d=>d.data=[]); macdChart.update(); }
-	}
 	function agruparHistorico(ativo, resolucaoMin){ const pontos=historicoCotacoes[ativo]||[]; if(pontos.length===0) return { labels:[], valores:[] }; const bucketMs=resolucaoMin*60*1000; const buckets=new Map(); for(const p of pontos){ const chave=Math.floor(p.ts/bucketMs)*bucketMs; if(!buckets.has(chave)){ buckets.set(chave, { soma:0, qtd:0, ultimo:p.preco }); } const b=buckets.get(chave); b.soma+=p.preco; b.qtd+=1; b.ultimo=p.preco; } const chavesOrdenadas=Array.from(buckets.keys()).sort((a,b)=>a-b); const labels=chavesOrdenadas.map(ts=>formatarHoraMinuto(new Date(ts))); const valores=chavesOrdenadas.map(ts=>buckets.get(ts).ultimo); return { labels, valores }; }
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
