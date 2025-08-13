@@ -170,7 +170,7 @@
 	let simpleCanvasCtx = null;
 
 	// Desenha candles diários em Canvas2D
-	function desenharCandlesDiarios(labels, candles){
+	function desenharCandles(labels, candles){
 		if(!simpleCanvasCtx) return;
 		const ctx = simpleCanvasCtx;
 		const canvas = ctx.canvas;
@@ -233,38 +233,42 @@
 		}
 	}
 
-	function agruparOHLCporDia(ativo){
+	function agruparOHLC(ativo, resolucao){
 		const pontos = historicoCotacoes[ativo] || [];
 		if(!pontos.length) return { labels: [], candles: [] };
-		// ordenar por ts crescente
 		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
-		const map = new Map(); // key dia -> {o,h,l,c}
+		const map = new Map();
 		for(const p of ordenados){
-			const d = new Date(p.ts); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, ts:p.ts });
-			else {
-				const o = map.get(key);
-				o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco;
+			const d = new Date(p.ts);
+			let key, label;
+			if(resolucao === 'dia'){
+				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+				label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+			}else if(resolucao === 'hora'){
+				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}`;
+				label = `${String(d.getHours()).padStart(2,'0')}:00`;
+			}else { // minuto
+				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+				label = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 			}
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label, ts:p.ts });
+			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; }
 		}
 		const keys = Array.from(map.keys()).sort();
-		const labels = keys.map(k=>{ const [y,m,dd]=k.split('-'); return `${dd}/${m}`; });
-		const candles = keys.map(k=> map.get(k));
+		const labels = keys.map(k=> map.get(k).label);
+		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
 		return { labels, candles };
 	}
 
-	// Simples gráfico de linha (modo anterior) -> substituído por candles diários em Canvas
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
 		const selectAtivo = document.getElementById('ativoGrafico');
-		if (selectAtivo) {
-			selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
-		}
+		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
-		if (selectRes) selectRes.disabled = true; // não usado para diário
+		if (selectRes) selectRes.disabled = false;
+		if (selectRes) selectRes.addEventListener('change', atualizarGraficoCotacao);
 		simpleCanvasCtx = canvas.getContext('2d');
-		// garantir ativo padrão
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		registrarHistoricoCotacao();
 		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
@@ -275,8 +279,16 @@
 		if(!simpleCanvasCtx){ return; }
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
-		const { labels, candles } = agruparOHLCporDia(ativoGraficoAtual);
-		desenharCandlesDiarios(labels.slice(-10), candles.slice(-10));
+		const selectRes = document.getElementById('resolucaoGrafico');
+		let resolucao = 'minuto';
+		if (selectRes) {
+			const v = selectRes.value;
+			if (v === '60') resolucao = 'hora';
+			else if (v === '30' || v === '5' || v === '1') resolucao = 'minuto';
+		}
+		// tecla: se usuário quer diário, defina select para 60 e agregue por hora (ou crie um toggle próprio). Aqui, manter horas/minutos.
+		const { labels, candles } = agruparOHLC(ativoGraficoAtual, resolucao);
+		desenharCandles(labels.slice(-30), candles.slice(-30));
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
