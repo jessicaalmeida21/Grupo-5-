@@ -15,8 +15,11 @@ body {
 }
 
 h1, h2, h3 {
-  color: #1a5276;
+  color: #14532d;
 }
+
+a { color: #15803d; }
+a:hover { color: #166534; }
 
 .flex {
   display: flex;
@@ -87,7 +90,7 @@ input, select, button {
 }
 
 .btn-azul {
-  background-color: #2980b9;
+  background-color: #16a34a;
   color: white;
   border: none;
   border-radius: 5px;
@@ -95,11 +98,11 @@ input, select, button {
 }
 
 .btn-azul:hover {
-  background-color: #1f618d;
+  background-color: #15803d;
 }
 
 .blue-section {
-  background-color: #ecf6fc;
+  background-color: #e8f5e9;
   padding: 10px;
   border-radius: 5px;
 }
@@ -170,11 +173,11 @@ body.dark-mode button {
 }
 
 body.dark-mode .btn-azul {
-  background-color: #1a3e60 !important;
+  background-color: #166534 !important;
 }
 
 body.dark-mode .btn-azul:hover {
-  background-color: #14527a !important;
+  background-color: #14532d !important;
 }
 
 /* Modal */
@@ -236,7 +239,7 @@ body.dark-mode #configuracao select {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0c1b33 0%, #142850 35%, #27496d 100%);
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 100%);
 }
 
 .login-card {

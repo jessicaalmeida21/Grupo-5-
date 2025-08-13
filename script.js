@@ -35,14 +35,16 @@ let resolucaoMinutosAtual = 1;
 
 // Função de login
 function login() {
-  const cpf = document.getElementById('cpf').value;
+  const cpfInput = document.getElementById('cpf').value;
   const senha = document.getElementById('senha').value;
-  const user = usuarios[cpf];
+  const cpfDigits = cpfInput.replace(/\D+/g, '');
+  const user = usuarios[cpfInput] || usuarios[cpfDigits];
+  const cpfKey = usuarios[cpfInput] ? cpfInput : (usuarios[cpfDigits] ? cpfDigits : '');
   if (user && user.senha === senha) {
-    cpfAtual = cpf;
+    cpfAtual = cpfKey;
     const contaRef = contas[user.conta];
     usuarioAtual = JSON.parse(JSON.stringify(contaRef));
-    usuarioAtual.cpf = cpf;
+    usuarioAtual.cpf = cpfKey;
     extrato = [];
     ordens = [];
     document.getElementById('username').innerText = usuarioAtual.nome;
@@ -126,6 +128,23 @@ try {
     if (select) { select.value = preferido; }
     aplicarLayout(preferido);
     document.body.classList.add('login-hero');
+    // Restringe somente números nos campos de CPF e WhatsApp do cadastro
+    const cpfCad = document.getElementById('cpfCadastro');
+    const whatsCad = document.getElementById('whatsappCadastro');
+    if (cpfCad) {
+      cpfCad.setAttribute('inputmode', 'numeric');
+      cpfCad.setAttribute('maxlength', '11');
+      cpfCad.addEventListener('input', () => {
+        cpfCad.value = cpfCad.value.replace(/\D+/g, '').slice(0, 11);
+      });
+    }
+    if (whatsCad) {
+      whatsCad.setAttribute('inputmode', 'numeric');
+      whatsCad.setAttribute('maxlength', '11');
+      whatsCad.addEventListener('input', () => {
+        whatsCad.value = whatsCad.value.replace(/\D+/g, '').slice(0, 11);
+      });
+    }
   });
 } catch (e) {}
 
@@ -414,300 +433,4 @@ function agruparHistorico(ativo, resolucaoMin) {
 function formatarHoraMinuto(d) {
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
-// Funções de operações de compra e venda
-function atualizarCarteira() {
-  const tbody = document.querySelector("#carteira tbody");
-  tbody.innerHTML = "";
-  for (let ativo in usuarioAtual.carteira) {
-    tbody.innerHTML += `<tr><td>${ativo}</td><td>${usuarioAtual.carteira[ativo]}</td></tr>`;
-  }
-  document.getElementById("saldo").innerText = usuarioAtual.saldo.toFixed(2);
-}
-
-function atualizarBook() {
-  const tbody = document.querySelector("#book tbody");
-  tbody.innerHTML = "";
-  for (let ativo in ativosB3) {
-    tbody.innerHTML += `<tr><td>${ativo}</td><td>${ativosB3[ativo].toFixed(2)}</td></tr>`;
-  }
-}
-
-function preencherSelectAtivos() {
-  const select = document.getElementById("ativo");
-  select.innerHTML = "";
-  for (let ativo in ativosB3) {
-    select.innerHTML += `<option value="${ativo}">${ativo}</option>`;
-  }
-}
-
-function atualizarOrdens() {
-  const tbody = document.querySelector("#ordens tbody");
-  tbody.innerHTML = "";
-  ordens.forEach(o => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${o.tipo}</td>
-        <td>${o.ativo}</td>
-        <td>${o.qtd}</td>
-        <td>${o.valor.toFixed(2)}</td>
-        <td>${o.cotacao.toFixed(2)}</td>
-        <td>${o.status}</td>
-        <td>${
-          o.status === "Aceita"
-            ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>`
-            : ""
-        }</td>
-      </tr>`;
-  });
-}
-
-function atualizarExtrato() {
-  const tbody = document.querySelector("#extrato tbody");
-  tbody.innerHTML = "";
-  extrato.forEach(e => {
-    tbody.innerHTML += `<tr><td>${e.dataHora}</td><td>${e.tipo}</td><td>${e.ativo}</td><td>${e.qtd}</td><td>${e.total.toFixed(2)}</td></tr>`;
-  });
-}
-
-// Função de cancelamento de ordens
-function cancelarOrdem(id) {
-  const ordem = ordens.find(o => o.id === id && o.status === "Aceita");
-  if (ordem) {
-    ordem.status = "Cancelada";
-    atualizarOrdens();
-    document.getElementById("mensagem").innerText = "Ordem cancelada.";
-  }
-}
-
-// Função de execução de operações (compra e venda)
-function executarOperacao() {
-  const tipo = document.getElementById('tipo').value;
-  const ativo = document.getElementById('ativo').value;
-  const qtd = parseInt(document.getElementById('quantidade').value);
-  const valor = parseFloat(document.getElementById('valor').value);
-  const cotacao = ativosB3[ativo];
-  const total = qtd * valor;
-
-  document.getElementById("mensagem").innerText = "";
-
-  if (isNaN(qtd) || qtd <= 0 || qtd % 100 !== 0) {
-    document.getElementById("mensagem").innerText = "Preencha uma quantidade válida (múltiplos de 100).";
-    return;
-  }
-  if (isNaN(valor) || valor <= 0) {
-    document.getElementById("mensagem").innerText = "Preencha um valor válido.";
-    return;
-  }
-
-  if (tipo === "Compra" && total > usuarioAtual.saldo) {
-    document.getElementById("mensagem").innerText = "Saldo insuficiente para essa compra.";
-    return;
-  }
-
-  if (tipo === "Venda" && (!usuarioAtual.carteira[ativo] || usuarioAtual.carteira[ativo] < qtd)) {
-    document.getElementById("mensagem").innerText = "Você não possui ativos suficientes para vender.";
-    return;
-  }
-
-  if (Math.abs(valor - cotacao) > 5) {
-    ordens.unshift({ tipo, ativo, qtd, valor, total, cotacao, status: "Rejeitada", id: Date.now(), dataHora: new Date().toLocaleString(), timestamp: Date.now() });
-    atualizarOrdens();
-    document.getElementById("mensagem").innerText = "Ordem rejeitada (diferença > R$5).";
-    return;
-  }
-
-  const agoraTs = Date.now();
-  const ordem = {
-    tipo,
-    ativo,
-    qtd,
-    valor,
-    total,
-    cotacao,
-    status: valor === cotacao ? "Executada" : "Aceita",
-    id: agoraTs,
-    dataHora: new Date(agoraTs).toLocaleString(),
-    timestamp: agoraTs
-  };
-
-  if (ordem.status === "Executada") {
-    aplicarOrdem(ordem);
-    extrato.unshift(ordem);
-  }
-
-  ordens.unshift(ordem);
-  atualizarOrdens();
-  atualizarCarteira();
-  atualizarExtrato();
-  document.getElementById("mensagem").innerText = "Ordem enviada.";
-}
-
-// Aplica ordens executadas ao saldo e carteira
-function aplicarOrdem(o) {
-  if (o.tipo === "Compra") {
-    usuarioAtual.saldo -= o.total;
-    usuarioAtual.carteira[o.ativo] = (usuarioAtual.carteira[o.ativo] || 0) + o.qtd;
-  } else {
-    usuarioAtual.saldo += o.total;
-    usuarioAtual.carteira[o.ativo] -= o.qtd;
-    if(usuarioAtual.carteira[o.ativo] <= 0) delete usuarioAtual.carteira[o.ativo];
-  }
-}
-
-// Atualização automática de cotações e ordens a cada 10 segundos
-setInterval(() => {
-  if(!usuarioAtual) return;
-  
-  for (let ativo in ativosB3) {
-    // Atualização aleatória do preço, +/- 0.05
-    const variacao = (Math.random() - 0.5) * 0.1;
-    ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2));
-    if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01;
-  }
-
-  // Registrar histórico de cotações
-  registrarHistoricoCotacao();
-
-  // Verificar ordens aceitas e executar se preço bate
-  ordens.forEach(o => {
-    if (o.status === "Aceita") {
-      const precoAtual = ativosB3[o.ativo];
-      if ((o.tipo === "Compra" && precoAtual <= o.valor) ||
-          (o.tipo === "Venda" && precoAtual >= o.valor)) {
-        aplicarOrdem(o);
-        o.status = "Executada";
-        o.dataHora = new Date().toLocaleString();
-        o.timestamp = Date.now();
-        extrato.unshift(o);
-
-        // Se alerta ativo, verificar preço
-        if(alertaAtivo && precoAlvo !== null) {
-          if((o.tipo === "Compra" && precoAtual <= precoAlvo) ||
-             (o.tipo === "Venda" && precoAtual >= precoAlvo)) {
-            alert(`Alerta de preço: ativo ${o.ativo} atingiu preço alvo de R$${precoAlvo.toFixed(2)}.`);
-          }
-        }
-      }
-    }
-  });
-
-  atualizarBook();
-  atualizarOrdens();
-  atualizarCarteira();
-  atualizarExtrato();
-  atualizarGraficoCotacao();
-}, 10000);
-
-// Função para alterar senha
-function alterarSenha() {
-  const novaSenha = document.getElementById('novaSenha').value.trim();
-  if(novaSenha.length < 3){
-    document.getElementById('senhaMsg').innerText = "A nova senha deve ter pelo menos 3 caracteres.";
-    return;
-  }
-  if(!cpfAtual || !usuarioAtual){
-    document.getElementById('senhaMsg').innerText = "Erro: usuário não autenticado.";
-    return;
-  }
-  usuarios[cpfAtual].senha = novaSenha;
-  document.getElementById('senhaMsg').innerText = "Senha alterada com sucesso!";
-  document.getElementById('novaSenha').value = "";
-}
-
-// Cadastro de novo usuário
-function cadastrarUsuario() {
-  const nome = document.getElementById('nomeCadastro').value.trim();
-  const cpf = document.getElementById('cpfCadastro').value.trim();
-  const whatsapp = document.getElementById('whatsappCadastro').value.trim();
-  const email = document.getElementById('emailCadastro').value.trim();
-  const senha = document.getElementById('senhaCadastro').value;
-  const senha2 = document.getElementById('confirmarSenhaCadastro').value;
-  const msg = document.getElementById('cadastroMsg');
-  msg.classList.remove('error');
-  msg.classList.add('success');
-  msg.innerText = '';
-
-  // Validações básicas
-  if (!nome || !cpf || !whatsapp || !email || !senha || !senha2) {
-    msg.classList.remove('success');
-    msg.classList.add('error');
-    msg.innerText = 'Preencha todos os campos.';
-    return;
-  }
-  if (usuarios[cpf]) {
-    msg.classList.remove('success');
-    msg.classList.add('error');
-    msg.innerText = 'CPF já cadastrado.';
-    return;
-  }
-  if (senha !== senha2) {
-    msg.classList.remove('success');
-    msg.classList.add('error');
-    msg.innerText = 'As senhas não conferem.';
-    return;
-  }
-  if (!/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
-    msg.classList.remove('success');
-    msg.classList.add('error');
-    msg.innerText = 'Email inválido.';
-    return;
-  }
-
-  // Cria uma nova conta vinculada
-  const contaId = `U${Date.now()}`;
-  contas[contaId] = {
-    nome,
-    saldo: 50000,
-    carteira: {}
-  };
-
-  // Salva usuário
-  usuarios[cpf] = {
-    senha,
-    conta: contaId,
-    nome,
-    whatsapp,
-    email
-  };
-
-  msg.innerText = 'Conta cadastrada com sucesso! Você já pode fazer login.';
-
-  // Limpa campos
-  document.getElementById('nomeCadastro').value = '';
-  document.getElementById('cpfCadastro').value = '';
-  document.getElementById('whatsappCadastro').value = '';
-  document.getElementById('emailCadastro').value = '';
-  document.getElementById('senhaCadastro').value = '';
-  document.getElementById('confirmarSenhaCadastro').value = '';
-}
-
-// Exportações do gráfico de cotação atual
-function exportarCotacoesJSON() {
-  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-  const registros = labels.map((lb, i) => ({ periodo: lb, preco: valores[i] }));
-  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
-  const blob = new Blob([JSON.stringify({ ativo: ativoGraficoAtual, resolucaoMinutos: resolucaoMinutosAtual, dados: registros }, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function exportarCotacoesXLSX() {
-  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-  const registros = labels.map((lb, i) => ({ 'Período': lb, 'Preço (R$)': valores[i] }));
-  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(registros);
-  XLSX.utils.book_append_sheet(wb, ws, `${ativoGraficoAtual}_${resolucaoMinutosAtual}m`);
-  XLSX.writeFile(wb, `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.xlsx`);
-}
+  return `${hh}:${mm}`
