@@ -51,7 +51,20 @@
 					<button class="btn-azul" onclick="exportarCotacoesXLSX()">Exportar XLSX</button>
 					<button class="btn-azul" onclick="exportarCotacoesJSON()">Exportar JSON</button>
 				</div>
-				<canvas id="graficoCotacao" height="200"></canvas>
+				<div class="login-actions" style="margin-top:10px">
+					<div class="left">
+						<label><input type="checkbox" id="toggleEMA9" checked> EMA 9</label>
+						<label><input type="checkbox" id="toggleEMA21" checked> EMA 21</label>
+						<label><input type="checkbox" id="toggleSMA50" checked> SMA 50</label>
+						<label><input type="checkbox" id="toggleBB" checked> Bandas de Bollinger</label>
+						<label><input type="checkbox" id="toggleVolume" checked> Volume</label>
+						<label><input type="checkbox" id="toggleMACD" checked> MACD</label>
+					</div>
+				</div>
+				<canvas id="graficoPreco" height="240"></canvas>
+				<canvas id="graficoVolume" height="90"></canvas>
+				<canvas id="graficoRSI" height="120"></canvas>
+				<canvas id="graficoMACD" height="140"></canvas>
 			</div>
 		</div>
 
@@ -134,6 +147,8 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3"></script>
 	<script src="shared.js"></script>
 	<script src="dashboard.js"></script>
 </body>
