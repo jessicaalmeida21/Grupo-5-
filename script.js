@@ -23,6 +23,12 @@ let cpfAtual = "";
 let alertaAtivo = false;
 let precoAlvo = null;
 
+// Histórico de preços em memória e gráfico de preço
+const historicoPrecos = {}; // { ATIVO: [{t: Date, p: number}, ...] }
+let graficoPrecoInstance = null;
+let graficoTimeframeAtual = '1m';
+let graficoAtivoAtual = null;
+
 // Função de login
 function login() {
   const cpf = document.getElementById('cpf').value;
@@ -42,6 +48,8 @@ function login() {
     atualizarCarteira();
     atualizarBook();
     preencherSelectAtivos();
+    registrarPrecosAtuais();
+    desenharGraficoPreco();
     atualizarExtrato();
     atualizarOrdens();
     document.getElementById('senhaMsg').innerText = "";
@@ -242,6 +250,19 @@ function preencherSelectAtivos() {
   for (let ativo in ativosB3) {
     select.innerHTML += `<option value="${ativo}">${ativo}</option>`;
   }
+  // Também preencher o seletor do gráfico, se existir
+  const selectGrafico = document.getElementById("ativoGrafico");
+  if (selectGrafico) {
+    const ativoAtual = selectGrafico.value || null;
+    selectGrafico.innerHTML = "";
+    for (let ativo in ativosB3) {
+      selectGrafico.innerHTML += `<option value="${ativo}">${ativo}</option>`;
+    }
+    // Restaurar ativo anterior se possível
+    if (ativoAtual && ativosB3[ativoAtual]) {
+      selectGrafico.value = ativoAtual;
+    }
+  }
 }
 
 function atualizarOrdens() {
@@ -357,6 +378,115 @@ function aplicarOrdem(o) {
   }
 }
 
+// Histórico de preços em memória e gráfico de preço
+function registrarPrecosAtuais() {
+  const agora = new Date();
+  for (let ativo in ativosB3) {
+    if (!historicoPrecos[ativo]) historicoPrecos[ativo] = [];
+    historicoPrecos[ativo].push({ t: agora, p: ativosB3[ativo] });
+    // manter no máx ~24 horas de dados (limpeza simples)
+    const umDiaMs = 24 * 60 * 60 * 1000;
+    historicoPrecos[ativo] = historicoPrecos[ativo].filter(pt => agora - pt.t <= umDiaMs);
+  }
+}
+
+function onChangeGraficoCotacao() {
+  const selectAtivo = document.getElementById('ativoGrafico');
+  const selectTimeframe = document.getElementById('timeframeGrafico');
+  if (!selectAtivo || !selectTimeframe) return;
+  graficoAtivoAtual = selectAtivo.value;
+  graficoTimeframeAtual = selectTimeframe.value;
+  desenharGraficoPreco();
+}
+
+function obterSeriesAgrupadas(serie, timeframe) {
+  if (!serie || serie.length === 0) return { labels: [], dados: [] };
+  const ms = {
+    '1m': 60 * 1000,
+    '5m': 5 * 60 * 1000,
+    '30m': 30 * 60 * 1000,
+    '1h': 60 * 60 * 1000,
+  }[timeframe] || (60 * 1000);
+
+  // Agrupar por janela de tempo, usando a média do período
+  const inicio = new Date(serie[0].t.getTime());
+  const buckets = new Map(); // key: bucketIndex, value: { soma, qtd, time }
+  serie.forEach(pt => {
+    const idx = Math.floor((pt.t - inicio) / ms);
+    const baseTime = new Date(inicio.getTime() + idx * ms);
+    if (!buckets.has(idx)) buckets.set(idx, { soma: 0, qtd: 0, time: baseTime });
+    const b = buckets.get(idx);
+    b.soma += pt.p;
+    b.qtd += 1;
+  });
+
+  const ordenado = Array.from(buckets.entries()).sort((a,b) => a[0]-b[0]).map(([,v]) => v);
+  const labels = ordenado.map(v => v.time.toLocaleTimeString());
+  const dados = ordenado.map(v => Number((v.soma / v.qtd).toFixed(2)));
+  return { labels, dados };
+}
+
+function desenharGraficoPreco() {
+  const canvas = document.getElementById('graficoPreco');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const ativo = graficoAtivoAtual || Object.keys(ativosB3)[0];
+  graficoAtivoAtual = ativo;
+  const serie = historicoPrecos[ativo] || [];
+  const { labels, dados } = obterSeriesAgrupadas(serie, graficoTimeframeAtual);
+
+  if (graficoPrecoInstance) {
+    graficoPrecoInstance.destroy();
+  }
+
+  graficoPrecoInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: `Preço médio (${graficoTimeframeAtual}) - ${ativo}`,
+        data: dados,
+        tension: 0.25,
+        fill: false,
+        borderColor: 'rgba(46, 204, 113, 1)',
+        backgroundColor: 'rgba(46, 204, 113, 0.2)',
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: false },
+        x: { ticks: { maxRotation: 0 } },
+      },
+      plugins: {
+        legend: { display: true },
+        tooltip: { mode: 'index', intersect: false },
+      },
+      animation: { duration: 200 }
+    }
+  });
+}
+
+function atualizarGraficoPrecoLive() {
+  const section = document.getElementById('grafico-cotacao-section');
+  if (!section || section.classList.contains('hidden')) return;
+  if (!graficoAtivoAtual) return;
+  // Recalcular agregação e atualizar
+  const serie = historicoPrecos[graficoAtivoAtual] || [];
+  const { labels, dados } = obterSeriesAgrupadas(serie, graficoTimeframeAtual);
+  if (!graficoPrecoInstance) {
+    desenharGraficoPreco();
+    return;
+  }
+  graficoPrecoInstance.data.labels = labels;
+  graficoPrecoInstance.data.datasets[0].data = dados;
+  graficoPrecoInstance.update();
+}
+
 // Atualização automática de cotações e ordens a cada 10 segundos
 setInterval(() => {
   if(!usuarioAtual) return;
@@ -367,6 +497,10 @@ setInterval(() => {
     ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2));
     if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01;
   }
+
+  // registrar snapshot de preços
+  registrarPrecosAtuais();
+  atualizarGraficoPrecoLive();
 
   // Verificar ordens aceitas e executar se preço bate
   ordens.forEach(o => {
@@ -396,6 +530,28 @@ setInterval(() => {
   atualizarCarteira();
   atualizarExtrato();
 }, 10000);
+
+// Inicializar seletores do gráfico ao abrir o portal
+(function initGraficoCotacao() {
+  // Preencher ativo do gráfico assim que a página carregar
+  window.addEventListener('load', () => {
+    const selectGrafico = document.getElementById('ativoGrafico');
+    const selectTimeframe = document.getElementById('timeframeGrafico');
+    if (selectGrafico) {
+      for (let ativo in ativosB3) {
+        selectGrafico.innerHTML += `<option value="${ativo}">${ativo}</option>`;
+      }
+      graficoAtivoAtual = Object.keys(ativosB3)[0];
+      selectGrafico.value = graficoAtivoAtual;
+    }
+    if (selectTimeframe) {
+      graficoTimeframeAtual = selectTimeframe.value || '1m';
+    }
+    // iniciar histórico com primeiro snapshot
+    registrarPrecosAtuais();
+    desenharGraficoPreco();
+  });
+})();
 
 // Função para alterar senha
 function alterarSenha() {

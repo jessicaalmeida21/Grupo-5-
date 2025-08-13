@@ -91,6 +91,23 @@
         </thead>
         <tbody></tbody>
       </table>
+
+      <!-- Gráfico de Cotação em Tempo Real -->
+      <div id="grafico-cotacao-section">
+        <h3>Gráfico de Cotação em Tempo Real</h3>
+        <label for="ativoGrafico">Ativo:</label>
+        <select id="ativoGrafico" onchange="onChangeGraficoCotacao()"></select>
+        <label for="timeframeGrafico">Timeframe:</label>
+        <select id="timeframeGrafico" onchange="onChangeGraficoCotacao()">
+          <option value="1m">1 minuto</option>
+          <option value="5m">5 minutos</option>
+          <option value="30m">30 minutos</option>
+          <option value="1h">1 hora</option>
+        </select>
+        <div class="chart-box">
+          <canvas id="graficoPreco"></canvas>
+        </div>
+      </div>
     </div>
 
     <!-- Módulo de Configuração -->
