@@ -257,7 +257,7 @@ function criarGraficoAnalise() {
       datasets: [{
         label: 'Quantidade Operada',
         data,
-        backgroundColor: 'rgba(41, 128, 185, 0.7)'
+        backgroundColor: 'rgba(102, 187, 106, 0.7)'
       }]
     },
     options: {
@@ -321,8 +321,8 @@ function inicializarGraficoCotacao() {
       datasets: [{
         label: 'Cotação (R$)',
         data: [],
-        borderColor: 'rgba(46, 134, 193, 1)',
-        backgroundColor: 'rgba(46, 134, 193, 0.2)',
+        borderColor: 'rgba(76, 175, 80, 1)',
+        backgroundColor: 'rgba(76, 175, 80, 0.2)',
         fill: false,
         tension: 0.15,
         pointRadius: 1

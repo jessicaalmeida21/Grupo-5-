@@ -1,21 +1,60 @@
+/* Clear-inspired green/white theme variables */
+:root {
+  --green-50: #e8f5e9;
+  --green-100: #c8e6c9;
+  --green-200: #a5d6a7;
+  --green-400: #66bb6a;
+  --green-600: #43a047;
+  --green-700: #2e7d32;
+  --green-800: #1b5e20;
+  --green-accent: #00c853;
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --text: #0a0a0a;
+  --text-invert: #ffffff;
+  --border: #cfd8dc;
+}
+
+/* Brand header */
+.brand-header {
+  width: 100%;
+  background: linear-gradient(135deg, var(--green-accent), var(--green-700));
+  color: var(--text-invert);
+  padding: 16px 24px;
+  border-radius: 10px;
+  margin: 0 auto 16px auto;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+.brand-header h1 {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.brand-header .slogan {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
 body {
   font-family: Arial, sans-serif;
-  background: #f4f6f9;
+  background: var(--bg);
   padding: 20px;
-  color: #000;
+  color: var(--text);
 }
 
 .container {
   max-width: 1200px;
   margin: auto;
-  background: white;
+  background: var(--panel);
   padding: 20px;
   border-radius: 10px;
   box-shadow: 0 0 15px rgba(0,0,0,0.1);
 }
 
 h1, h2, h3 {
-  color: #1a5276;
+  color: var(--green-700);
 }
 
 .flex {
@@ -31,9 +70,15 @@ table {
 }
 
 th, td {
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   padding: 8px;
   text-align: center;
+}
+
+/* Table header emphasis */
+thead th {
+  background-color: var(--green-50);
+  color: var(--green-800);
 }
 
 .hidden {
@@ -45,14 +90,16 @@ input, select, button {
   margin: 5px 5px 5px 0;
   border: 1px solid #ccc;
   border-radius: 5px;
+  color: var(--text);
+  background: #fff;
 }
 
 .error {
-  color: red;
+  color: #e53935;
 }
 
 .success {
-  color: green;
+  color: var(--green-700);
 }
 
 .scrollable {
@@ -86,8 +133,9 @@ input, select, button {
   background-color: #f39c12;
 }
 
+/* Primary button now green */
 .btn-azul {
-  background-color: #2980b9;
+  background-color: var(--green-accent);
   color: white;
   border: none;
   border-radius: 5px;
@@ -95,13 +143,14 @@ input, select, button {
 }
 
 .btn-azul:hover {
-  background-color: #1f618d;
+  background-color: var(--green-700);
 }
 
 .blue-section {
-  background-color: #ecf6fc;
+  background-color: var(--green-50);
   padding: 10px;
   border-radius: 5px;
+  border: 1px solid var(--green-100);
 }
 
 .senha-wrapper {
@@ -120,6 +169,7 @@ input, select, button {
   right: 8px;
   transform: translateY(-50%);
   cursor: pointer;
+  color: var(--green-700);
 }
 
 #configuracao {
@@ -130,51 +180,67 @@ input, select, button {
 }
 
 #configuracao h2 {
-  color: #2980b9;
+  color: var(--green-700);
 }
 
 #configuracao div {
   margin-bottom: 20px;
 }
 
-/* Modo escuro */
+/* Dark mode tuned to green theme with explicit text colors */
 body.dark-mode {
-  background-color: #222 !important;
-  color: #eee !important;
+  background-color: #0f1a12 !important; /* deep green */
+  color: var(--text-invert) !important;
 }
 
 body.dark-mode .container {
-  background-color: #333 !important;
+  background-color: #15261b !important;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.6) !important;
 }
 
 body.dark-mode h1,
 body.dark-mode h2,
-body.dark-mode h3 {
-  color: #aad8ff !important;
+body.dark-mode h3,
+body.dark-mode p,
+body.dark-mode label,
+body.dark-mode td,
+body.dark-mode th,
+body.dark-mode #loginMsg,
+body.dark-mode #cadastroMsg {
+  color: var(--text-invert) !important;
 }
 
 body.dark-mode table,
 body.dark-mode th,
 body.dark-mode td {
-  border-color: #555 !important;
-  color: #eee !important;
+  border-color: #29543a !important;
+}
+
+body.dark-mode thead th {
+  background-color: #1c3c29 !important;
+  color: #e6f3ea !important;
 }
 
 body.dark-mode input,
 body.dark-mode select,
 body.dark-mode button {
-  background-color: #444 !important;
-  color: #eee !important;
-  border-color: #666 !important;
+  background-color: #1a2f22 !important;
+  color: var(--text-invert) !important;
+  border-color: #2b4a36 !important;
 }
 
 body.dark-mode .btn-azul {
-  background-color: #1a3e60 !important;
+  background-color: #1faa57 !important;
+  color: #ffffff !important;
 }
 
 body.dark-mode .btn-azul:hover {
-  background-color: #14527a !important;
+  background-color: #177d3f !important;
+}
+
+body.dark-mode .blue-section {
+  background-color: #143322 !important;
+  border-color: #224d35 !important;
 }
 
 /* Modal */
@@ -201,8 +267,8 @@ body.dark-mode .btn-azul:hover {
 }
 
 body.dark-mode .modal-content {
-  background: #444;
-  color: #eee;
+  background: #1a2f22;
+  color: #e6f3ea;
 }
 
 .close {
@@ -212,9 +278,9 @@ body.dark-mode .modal-content {
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
-  color: #888;
+  color: #2e7d32;
 }
 
 .close:hover {
-  color: #444;
+  color: #1b5e20;
 }
