@@ -190,10 +190,12 @@
 		if (graficoCotacaoInstance) graficoCotacaoInstance.destroy();
 		graficoCotacaoInstance = new Chart(ctx, {
 			type: 'line',
-			data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: true, tension: 0.15, pointRadius: 0 }] },
+			data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: false, tension: 0.15, pointRadius: 2 }] },
 			options: { responsive: true, animation: false, scales: { y: { beginAtZero: false }, x: { ticks: { maxRotation: 0 } } }, plugins: { legend: { display: true } } }
 		});
 		registrarHistoricoCotacao();
+		// Adiciona um segundo ponto rapidamente para garantir visualização imediata
+		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
 		atualizarGraficoCotacao();
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
