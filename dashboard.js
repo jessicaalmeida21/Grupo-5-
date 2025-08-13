@@ -75,11 +75,14 @@
 
 	function registrarPluginsFinanceiros(){
 		try {
-			if (window.Chart && Chart.registry && Chart.registry.categories && Chart.FinancialController) {
-				Chart.register(Chart.FinancialController, Chart.CandlestickController, Chart.OhlcController, Chart.elements.CandlestickElement, Chart.elements.OhlcElement);
-			}
-			if (window['chartjs-plugin-annotation']) {
-				Chart.register(window['chartjs-plugin-annotation']);
+			if (window.Chart) {
+				// Registra tudo que o pacote fornece; evita dependências faltando
+				if (window['chartjs-chart-financial']) {
+					Chart.register(window['chartjs-chart-financial']);
+				}
+				if (window['chartjs-plugin-annotation']) {
+					Chart.register(window['chartjs-plugin-annotation']);
+				}
 			}
 		} catch(e) { /* no-op */ }
 	}
@@ -190,14 +193,22 @@
 		const commonOpts = { animation:false, responsive:true, scales:{ x:{ grid }, y:{ grid } }, plugins:{ legend:{ display:false } } };
 
 		if(priceChart) priceChart.destroy();
-		priceChart = new Chart(priceCanvas.getContext('2d'), {
-			type: 'candlestick',
-			data: { datasets: [] },
-			options: {
-				...commonOpts,
-				plugins:{ ...commonOpts.plugins, annotation:{ annotations: {} } }
-			}
-		});
+		try {
+			priceChart = new Chart(priceCanvas.getContext('2d'), {
+				type: 'candlestick',
+				data: { datasets: [] },
+				options: {
+					...commonOpts,
+					plugins:{ ...commonOpts.plugins, annotation:{ annotations: {} } }
+				}
+			});
+		} catch(err) {
+			priceChart = new Chart(priceCanvas.getContext('2d'), {
+				type: 'ohlc',
+				data: { datasets: [] },
+				options: { ...commonOpts }
+			});
+		}
 		if(volumeChart) volumeChart.destroy();
 		volumeChart = new Chart(volCanvas.getContext('2d'), { type:'bar', data:{ labels:[], datasets:[{ label:'Volume', data:[], backgroundColor:'rgba(22,163,74,0.35)' }]}, options:{ ...commonOpts, scales:{ x:{ grid }, y:{ grid, beginAtZero:true } } }});
 		if(rsiChart) rsiChart.destroy();
@@ -220,9 +231,8 @@
 		const bb = calcularBB(closes, 20, 2);
 
 		priceChart.data.labels = l2;
-		priceChart.data.datasets = [
-			{ label:'Preço', data: ohlc, type:'candlestick', borderColor:'#111827', color:{ up:'#16a34a', down:'#ef4444', unchanged:'#9ca3af' }, barThickness: 6 }
-		];
+		const candleDataset = { label:'Preço', data: ohlc, type: priceChart.config.type, borderColor:'#111827', color:{ up:'#16a34a', down:'#ef4444', unchanged:'#9ca3af' }, barThickness: 6 };
+		priceChart.data.datasets = [ candleDataset ];
 		if(document.getElementById('toggleEMA9')?.checked){ priceChart.data.datasets.push({ label:'EMA 9', type:'line', data: ema9, borderColor:'#22c55e', borderWidth:1.2, pointRadius:0 }); }
 		if(document.getElementById('toggleEMA21')?.checked){ priceChart.data.datasets.push({ label:'EMA 21', type:'line', data: ema21, borderColor:'#10b981', borderWidth:1.2, pointRadius:0 }); }
 		if(document.getElementById('toggleSMA50')?.checked){ priceChart.data.datasets.push({ label:'SMA 50', type:'line', data: sma50, borderColor:'#6b7280', borderWidth:1.2, pointRadius:0 }); }
