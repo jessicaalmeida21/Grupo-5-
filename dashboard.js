@@ -167,6 +167,29 @@
 	window.alterarSenha = function(){ const novaSenha=document.getElementById('novaSenha').value.trim(); if(novaSenha.length<3){ document.getElementById('senhaMsg').innerText = 'A nova senha deve ter pelo menos 3 caracteres.'; return; } const cpf = usuarioAtual?.cpf; if(!cpf){ document.getElementById('senhaMsg').innerText='Erro: usuário não autenticado.'; return; } usuarios[cpf].senha = novaSenha; HBShared.setUsuarios(usuarios); document.getElementById('senhaMsg').innerText='Senha alterada com sucesso!'; document.getElementById('novaSenha').value=''; }
 
 	function preencherSelectAtivosGrafico(){ const select=document.getElementById('ativoGrafico'); if(!select) return; select.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; opt.textContent=ativo; select.appendChild(opt); } const primeiro=Object.keys(ativosB3)[0]; select.value=primeiro; ativoGraficoAtual = primeiro; }
+	let simpleCanvasCtx = null;
+
+	// Desenha com Canvas2D (fallback sem Chart.js)
+	function desenharSimples(labels, valores){
+		if(!simpleCanvasCtx) return;
+		const ctx = simpleCanvasCtx;
+		const w = ctx.canvas.width;
+		const h = ctx.canvas.height;
+		ctx.clearRect(0,0,w,h);
+		if(valores.length<1) return;
+		const vmin = Math.min(...valores);
+		const vmax = Math.max(...valores);
+		const pad = 10;
+		const toX = (i)=> (i/(valores.length-1)) * (w - pad*2) + pad;
+		const toY = (v)=> h - pad - ((v - vmin) / Math.max(1e-6, (vmax-vmin))) * (h - pad*2);
+		ctx.lineWidth = 2;
+		ctx.strokeStyle = 'rgba(46,134,193,1)';
+		ctx.beginPath();
+		ctx.moveTo(toX(0), toY(valores[0]));
+		for(let i=1;i<valores.length;i++) ctx.lineTo(toX(i), toY(valores[i]));
+		ctx.stroke();
+	}
+
 	// Simples gráfico de linha (modo anterior)
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
@@ -187,14 +210,17 @@
 			resolucaoMinutosAtual = parseInt(selectRes.value, 10);
 		}
 		const ctx = canvas.getContext('2d');
-		if (graficoCotacaoInstance) graficoCotacaoInstance.destroy();
-		graficoCotacaoInstance = new Chart(ctx, {
-			type: 'line',
-			data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: false, tension: 0.15, pointRadius: 2 }] },
-			options: { responsive: true, animation: false, scales: { y: { beginAtZero: false }, x: { ticks: { maxRotation: 0 } } }, plugins: { legend: { display: true } } }
-		});
+		if (typeof Chart !== 'undefined'){
+			if (graficoCotacaoInstance) graficoCotacaoInstance.destroy();
+			graficoCotacaoInstance = new Chart(ctx, {
+				type: 'line',
+				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(46, 134, 193, 1)', backgroundColor: 'rgba(46, 134, 193, 0.2)', fill: false, tension: 0.15, pointRadius: 2 }] },
+				options: { responsive: true, animation: false, scales: { y: { beginAtZero: false }, x: { ticks: { maxRotation: 0 } } }, plugins: { legend: { display: true } } }
+			});
+		} else {
+			simpleCanvasCtx = ctx;
+		}
 		registrarHistoricoCotacao();
-		// Adiciona um segundo ponto rapidamente para garantir visualização imediata
 		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
 		atualizarGraficoCotacao();
 	}
