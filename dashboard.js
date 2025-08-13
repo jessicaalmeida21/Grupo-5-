@@ -179,7 +179,12 @@
 		ctx.clearRect(0,0,w,h);
 		if(!candles.length) return;
 
-		const padX = 40;
+		const isDark = document.body.classList.contains('dark-mode');
+		const textColor = isDark ? '#e5e7eb' : '#374151';
+		const gridColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+		const wickBase = isDark ? '#e5e7eb' : '#111827';
+
+		const padX = 48;
 		const padY = 20;
 		const plotW = Math.max(1, w - padX*2);
 		const plotH = Math.max(1, h - padY*2);
@@ -191,22 +196,21 @@
 		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
 		const toY = (v)=> padY + (maxP - v) / range * plotH;
 
-		// gridlines horizontais
-		ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+		// gridlines horizontais + rótulos de preço
+		ctx.strokeStyle = gridColor;
 		ctx.lineWidth = 1;
+		ctx.fillStyle = textColor;
+		ctx.font = '12px Inter, Arial, sans-serif';
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'middle';
 		for(let g=0; g<=4; g++){
-			const y = padY + g*(plotH/4);
+			const yVal = maxP - g*(range/4);
+			const y = toY(yVal);
 			ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w-padX, y); ctx.stroke();
+			ctx.fillText(yVal.toFixed(2), 6, y);
 		}
 
-		// eixos labels simples (min/max)
-		ctx.fillStyle = '#6b7280';
-		ctx.font = '12px Inter, Arial, sans-serif';
-		ctx.fillText(maxP.toFixed(2), 4, toY(maxP)+4);
-		ctx.fillText(minP.toFixed(2), 4, toY(minP)+4);
-
 		const candleW = Math.max(6, (plotW / candles.length) * 0.6);
-		const wickColor = '#111827';
 		for(let i=0;i<candles.length;i++){
 			const { o,h:hi,l:lo,c } = candles[i];
 			const up = c >= o;
@@ -218,17 +222,24 @@
 			const bodyTop = Math.min(yO, yC);
 			const bodyH = Math.max(2, Math.abs(yO - yC));
 			// wick
-			ctx.strokeStyle = wickColor;
+			ctx.strokeStyle = wickBase;
 			ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
 			// body
-			ctx.fillStyle = up ? 'rgba(22,163,74,0.7)' : 'rgba(239,68,68,0.7)';
-			ctx.strokeStyle = up ? '#166534' : '#991b1b';
+			ctx.fillStyle = up ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)';
+			ctx.strokeStyle = up ? '#16a34a' : '#ef4444';
 			ctx.lineWidth = 1;
 			ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
 			ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
-			// x labels
-			ctx.fillStyle = '#6b7280';
-			ctx.textAlign = 'center';
+		}
+
+		// rótulos de tempo no eixo X espaçados
+		const step = Math.max(1, Math.ceil(candles.length / 6));
+		ctx.fillStyle = textColor;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'alphabetic';
+		for(let i=0;i<candles.length;i++){
+			if (i % step !== 0 && i !== candles.length-1) continue;
+			const x = toX(i);
 			ctx.fillText(labels[i], x, h-4);
 		}
 	}
