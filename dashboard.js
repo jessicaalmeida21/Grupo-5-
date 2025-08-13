@@ -244,28 +244,23 @@
 		}
 	}
 
-	function agruparOHLC(ativo, resolucao){
+	function agruparOHLC(ativo, stepMin){
 		const pontos = historicoCotacoes[ativo] || [];
 		if(!pontos.length) return { labels: [], candles: [] };
 		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
 		const map = new Map();
+		const step = Math.max(1, parseInt(stepMin, 10) || 1);
 		for(const p of ordenados){
 			const d = new Date(p.ts);
-			let key, label;
-			if(resolucao === 'dia'){
-				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-				label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-			}else if(resolucao === 'hora'){
-				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}`;
-				label = `${String(d.getHours()).padStart(2,'0')}:00`;
-			}else { // minuto
-				key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-				label = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-			}
-			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label, ts:p.ts });
+			const flooredMin = step >= 60 ? 0 : Math.floor(d.getMinutes()/step)*step;
+			const hour = d.getHours();
+			const keyDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, flooredMin, 0, 0);
+			const key = keyDate.getTime();
+			const label = step >= 60 ? `${String(hour).padStart(2,'0')}:00` : `${String(hour).padStart(2,'0')}:${String(flooredMin).padStart(2,'0')}`;
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label });
 			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; }
 		}
-		const keys = Array.from(map.keys()).sort();
+		const keys = Array.from(map.keys()).sort((a,b)=>a-b);
 		const labels = keys.map(k=> map.get(k).label);
 		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
 		return { labels, candles };
@@ -290,7 +285,7 @@
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
-		if (selectRes) selectRes.addEventListener('change', ()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); });
+		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
 		simpleCanvasCtx = canvas.getContext('2d');
 		ajustarCanvas();
 		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
@@ -306,13 +301,8 @@
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
-		let resolucao = 'minuto';
-		if (selectRes) {
-			const v = selectRes.value;
-			if (v === '60') resolucao = 'hora';
-			else resolucao = 'minuto';
-		}
-		const { labels, candles } = agruparOHLC(ativoGraficoAtual, resolucao);
+		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
+		const { labels, candles } = agruparOHLC(ativoGraficoAtual, step);
 		desenharCandles(labels.slice(-30), candles.slice(-30));
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
