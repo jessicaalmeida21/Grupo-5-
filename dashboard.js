@@ -73,7 +73,19 @@
 		return { macd, signal: signalArr, hist };
 	}
 
+	function registrarPluginsFinanceiros(){
+		try {
+			if (window.Chart && Chart.registry && Chart.registry.categories && Chart.FinancialController) {
+				Chart.register(Chart.FinancialController, Chart.CandlestickController, Chart.OhlcController, Chart.elements.CandlestickElement, Chart.elements.OhlcElement);
+			}
+			if (window['chartjs-plugin-annotation']) {
+				Chart.register(window['chartjs-plugin-annotation']);
+			}
+		} catch(e) { /* no-op */ }
+	}
+
 	document.addEventListener('DOMContentLoaded', function(){
+		registrarPluginsFinanceiros();
 		const cpf = HBShared.getSessionCPF();
 		if (!cpf){ window.location.href = 'login.html'; return; }
 		usuarios = HBShared.getUsuarios();
@@ -187,7 +199,7 @@
 			}
 		});
 		if(volumeChart) volumeChart.destroy();
-		volumeChart = new Chart(volCanvas.getContext('2d'), { type:'bar', data:{ labels:[], datasets:[{ label:'Volume', data:[], backgroundColor:'rgba(22,163,74,0.35)' }]}, options:{ ...commonOpts, scales:{ x:{ grid }, y:{ grid, beginAtZero:true } }}});
+		volumeChart = new Chart(volCanvas.getContext('2d'), { type:'bar', data:{ labels:[], datasets:[{ label:'Volume', data:[], backgroundColor:'rgba(22,163,74,0.35)' }]}, options:{ ...commonOpts, scales:{ x:{ grid }, y:{ grid, beginAtZero:true } } }});
 		if(rsiChart) rsiChart.destroy();
 		rsiChart = new Chart(rsiCanvas.getContext('2d'), { type:'line', data:{ labels:[], datasets:[{ label:'RSI', data:[], borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,0.15)', fill:true, tension:0.2 }]}, options:{ ...commonOpts, plugins:{ ...commonOpts.plugins, annotation:{ annotations:{ rsi70:{ type:'line', yMin:70, yMax:70, borderColor:'#ef4444', borderWidth:1, borderDash:[6,4] }, rsi30:{ type:'line', yMin:30, yMax:30, borderColor:'#10b981', borderWidth:1, borderDash:[6,4] } } } }, scales:{ y:{ min:0, max:100, grid } } }});
 		if(macdChart) macdChart.destroy();
