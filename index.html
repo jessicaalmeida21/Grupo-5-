@@ -92,16 +92,20 @@
             <button class="btn-azul" onclick="exportarCotacoesXLSX()">Exportar XLSX</button>
             <button class="btn-azul" onclick="exportarCotacoesJSON()">Exportar JSON</button>
           </div>
-          <div style="margin: 8px 0;">
-            <label><input type="checkbox" id="indEma9" checked /> EMA 9</label>
-            <label><input type="checkbox" id="indEma21" checked /> EMA 21</label>
-            <label><input type="checkbox" id="indSma50" /> SMA 50</label>
-            <label><input type="checkbox" id="indBb" /> Bollinger (20,2)</label>
-            <label><input type="checkbox" id="indRsi" /> RSI 14</label>
-          </div>
-          <canvas id="graficoCotacao" height="260"></canvas>
-          <canvas id="graficoRSI" class="hidden" height="120"></canvas>
-        </div>
+                     <div style="margin: 8px 0;">
+             <label><input type="checkbox" id="indEma9" checked /> EMA 9</label>
+             <label><input type="checkbox" id="indEma21" checked /> EMA 21</label>
+             <label><input type="checkbox" id="indSma50" /> SMA 50</label>
+             <label><input type="checkbox" id="indBb" /> Bollinger (20,2)</label>
+             <label><input type="checkbox" id="indRsi" /> RSI 14</label>
+             <label><input type="checkbox" id="indVolume" checked /> Volume</label>
+             <label><input type="checkbox" id="indMacd" /> MACD 12/26/9</label>
+           </div>
+           <canvas id="graficoCotacao" height="260"></canvas>
+           <canvas id="graficoVolume" height="100"></canvas>
+           <canvas id="graficoRSI" class="hidden" height="120"></canvas>
+           <canvas id="graficoMACD" class="hidden" height="120"></canvas>
+         </div>
       </div>
 
       <h3>Boleta de Compra e Venda</h3>
