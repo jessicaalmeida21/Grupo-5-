@@ -837,40 +837,6 @@ function cadastrarUsuario() {
   document.getElementById('confirmarSenhaCadastro').value = '';
 }
 
-// Exportações do gráfico de cotação atual
-function exportarCotacoesJSON() {
-  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
-  if (candles.length === 0) { alert('Sem dados de cotação no período.'); return; }
-  const payload = candles.map(c => ({ timestamp: c.x, open: c.o, high: c.h, low: c.l, close: c.c }));
-  const blob = new Blob([JSON.stringify({ ativo: ativoGraficoAtual, resolucaoMinutos: resolucaoMinutosAtual, ohlc: payload }, null, 2)], { type: 'application/json;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function exportarCotacoesXLSX() {
-  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
-  if (candles.length === 0) { alert('Sem dados de cotação no período.'); return; }
-  const registros = candles.map(c => ({
-    'Data/Hora': new Date(c.x).toLocaleString(),
-    'Abertura (R$)': c.o,
-    'Máxima (R$)': c.h,
-    'Mínima (R$)': c.l,
-    'Fechamento (R$)': c.c
-  }));
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(registros);
-  XLSX.utils.book_append_sheet(wb, ws, `${ativoGraficoAtual}_${resolucaoMinutosAtual}m`);
-  XLSX.writeFile(wb, `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.xlsx`);
-}
-
 function calcularSMA(series, period) {
   const out = [];
   let sum = 0;
