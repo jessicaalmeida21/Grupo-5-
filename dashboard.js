@@ -271,6 +271,18 @@
 		return { labels, candles };
 	}
 
+	function ajustarCanvas(){
+		const canvas = document.getElementById('graficoCotacao');
+		if(!canvas || !simpleCanvasCtx) return;
+		const ratio = window.devicePixelRatio || 1;
+		const cssW = canvas.clientWidth || canvas.parentElement?.clientWidth || 600;
+		const cssH = canvas.clientHeight || 220;
+		canvas.width = Math.floor(cssW * ratio);
+		canvas.height = Math.floor(cssH * ratio);
+		simpleCanvasCtx.setTransform(1,0,0,1,0,0);
+		if(ratio !== 1){ simpleCanvasCtx.scale(ratio, ratio); }
+	}
+
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
@@ -278,8 +290,10 @@
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
-		if (selectRes) selectRes.addEventListener('change', atualizarGraficoCotacao);
+		if (selectRes) selectRes.addEventListener('change', ()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); });
 		simpleCanvasCtx = canvas.getContext('2d');
+		ajustarCanvas();
+		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		registrarHistoricoCotacao();
 		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
@@ -287,6 +301,7 @@
 	}
 
 	function atualizarGraficoCotacao(){
+		ajustarCanvas();
 		if(!simpleCanvasCtx){ return; }
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
@@ -295,9 +310,8 @@
 		if (selectRes) {
 			const v = selectRes.value;
 			if (v === '60') resolucao = 'hora';
-			else if (v === '30' || v === '5' || v === '1') resolucao = 'minuto';
+			else resolucao = 'minuto';
 		}
-		// tecla: se usuário quer diário, defina select para 60 e agregue por hora (ou crie um toggle próprio). Aqui, manter horas/minutos.
 		const { labels, candles } = agruparOHLC(ativoGraficoAtual, resolucao);
 		desenharCandles(labels.slice(-30), candles.slice(-30));
 	}
