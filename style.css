@@ -299,7 +299,7 @@ body.dark-mode #configuracao select {
 .login-actions .btn-primary {
   flex: 1;
   height: 42px;
-  background: #2563eb;
+  background: #16a34a;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -308,7 +308,7 @@ body.dark-mode #configuracao select {
 }
 
 .login-actions .btn-primary:hover {
-  background: #1d4ed8;
+  background: #15803d;
 }
 
 .login-meta {
