@@ -218,3 +218,14 @@ body.dark-mode .modal-content {
 .close:hover {
   color: #444;
 }
+
+/* Gráfico de análise responsivo */
+#analiseModal .modal-content {
+  height: 60vh;
+}
+
+#graficoAnalise {
+  width: 100% !important;
+  height: calc(100% - 60px) !important;
+  display: block;
+}

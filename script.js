@@ -161,22 +161,16 @@ function fecharAnalise() {
 // Função para criar gráfico usando Chart.js
 let graficoInstance = null;
 function criarGraficoAnalise() {
-  const ctx = document.getElementById("graficoAnalise").getContext("2d");
-  
-  // Organizar dados para gráfico: quantidade operada por ativo
-  const dadosAtivos = {};
-  extrato.forEach(op => {
-    if (!dadosAtivos[op.ativo]) dadosAtivos[op.ativo] = 0;
-    dadosAtivos[op.ativo] += op.qtd;
-  });
-  
-  const labels = Object.keys(dadosAtivos);
-  const data = Object.values(dadosAtivos);
-  
-  if(graficoInstance) {
+  const canvas = document.getElementById("graficoAnalise");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  const { labels, data } = obterDadosGrafico();
+
+  if (graficoInstance) {
     graficoInstance.destroy();
   }
-  
+
   graficoInstance = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -184,16 +178,44 @@ function criarGraficoAnalise() {
       datasets: [{
         label: 'Quantidade Operada',
         data,
-        backgroundColor: 'rgba(41, 128, 185, 0.7)'
+        backgroundColor: 'rgba(41, 128, 185, 0.7)',
+        borderColor: 'rgba(41, 128, 185, 1)',
+        borderWidth: 1,
       }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       scales: {
-        y: { beginAtZero: true }
-      }
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      },
+      animation: { duration: 250 }
     }
   });
+}
+
+function obterDadosGrafico() {
+  // Organizar dados para gráfico: quantidade operada por ativo
+  const ativosParaQuantidade = {};
+  extrato.forEach((operacao) => {
+    if (!ativosParaQuantidade[operacao.ativo]) ativosParaQuantidade[operacao.ativo] = 0;
+    ativosParaQuantidade[operacao.ativo] += operacao.qtd;
+  });
+  return {
+    labels: Object.keys(ativosParaQuantidade),
+    data: Object.values(ativosParaQuantidade),
+  };
+}
+
+function atualizarGraficoSeAberto() {
+  const modal = document.getElementById('analiseModal');
+  const modalAberto = modal && !modal.classList.contains('hidden');
+  if (!modalAberto || !graficoInstance) return;
+
+  const { labels, data } = obterDadosGrafico();
+  graficoInstance.data.labels = labels;
+  graficoInstance.data.datasets[0].data = data;
+  graficoInstance.update();
 }
 
 // Funções de operações de compra e venda
@@ -313,6 +335,7 @@ function executarOperacao() {
   if (ordem.status === "Executada") {
     aplicarOrdem(ordem);
     extrato.unshift(ordem);
+    atualizarGraficoSeAberto();
   }
 
   ordens.unshift(ordem);
@@ -355,6 +378,7 @@ setInterval(() => {
         o.status = "Executada";
         o.dataHora = new Date().toLocaleString();
         extrato.unshift(o);
+        atualizarGraficoSeAberto();
 
         // Se alerta ativo, verificar preço
         if(alertaAtivo && precoAlvo !== null) {
