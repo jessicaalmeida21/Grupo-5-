@@ -329,3 +329,65 @@ body.dark-mode #configuracao select {
 @media (max-width: 480px) {
   .login-card { padding: 20px; border-radius: 10px; }
 }
+
+.site-header { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-bottom: 1px solid #eef2f7; }
+.site-header.sticky { box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.nav { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; }
+.nav-brand { font-weight: 700; color: #14532d; }
+.nav-links { display: flex; gap: 18px; align-items: center; }
+.nav-link { color: #14532d; text-decoration: none; font-weight: 500; }
+.nav-link:hover { text-decoration: underline; }
+
+.hero { position: relative; padding: 80px 20px; background: linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 100%); color: #fff; }
+.hero .hero-inner { max-width: 1200px; margin: 0 auto; text-align: left; }
+.hero h1 { font-size: 40px; margin-bottom: 8px; color: #fff; }
+.hero p { font-size: 18px; color: #e5e7eb; }
+.hero-ctas { margin-top: 16px; display: flex; gap: 12px; }
+.btn-ghost { padding: 10px 14px; border: 1px solid #fff; color: #fff; border-radius: 8px; text-decoration: none; }
+.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.hero-bg-shape { position: absolute; right: 0; bottom: 0; width: 40%; height: 100%; background: radial-gradient(ellipse at center, rgba(255,255,255,0.08), rgba(0,0,0,0)); pointer-events: none; }
+
+.section { padding: 60px 20px; }
+.section-title { max-width: 1200px; margin: 0 auto 20px; }
+.section-title h2 { margin: 0; }
+.section-title p { margin: 4px 0 0 0; color: #6b7280; }
+
+.features-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.feature-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; box-shadow: 0 8px 16px rgba(0,0,0,0.05); transition: transform .2s ease; }
+.feature-card:hover { transform: translateY(-3px); }
+
+.tabs { max-width: 1200px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
+.tab-buttons { display: flex; gap: 8px; }
+.tab-btn { background: #e8f5e9; border: none; border-radius: 8px; padding: 8px 12px; color: #14532d; cursor: pointer; font-weight: 600; }
+.tab-btn.active { background: #16a34a; color: #fff; }
+.tab-panels { margin-top: 10px; }
+.tab-panel { display: none; color: #374151; }
+.tab-panel.active { display: block; }
+
+.stats-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; text-align: center; }
+.stat-number { font-size: 28px; font-weight: 700; color: #14532d; }
+.stat-label { color: #6b7280; }
+
+.carousel { max-width: 900px; margin: 0 auto; position: relative; }
+.carousel-viewport { overflow: hidden; border-radius: 12px; }
+.carousel-track { display: flex; transition: transform .4s ease; width: 300%; }
+.carousel-item { flex: 0 0 100%; background: #fff; border: 1px solid #e5e7eb; padding: 30px; text-align: center; }
+.carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); background: #16a34a; color: #fff; border: none; border-radius: 999px; width: 36px; height: 36px; cursor: pointer; }
+.carousel-nav.prev { left: -18px; }
+.carousel-nav.next { right: -18px; }
+
+.accordion { max-width: 900px; margin: 0 auto; }
+.accordion-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.acc-header { width: 100%; text-align: left; background: #e8f5e9; color: #14532d; border: none; padding: 12px 14px; font-weight: 600; cursor: pointer; }
+.acc-body { display: none; padding: 12px 14px; color: #374151; }
+.accordion-item.open .acc-body { display: block; }
+
+.site-footer { border-top: 1px solid #e5e7eb; padding: 20px; background: #fff; }
+.footer-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+
+/* Reveal animation */
+.reveal { opacity: 0; transform: translateY(16px); transition: all .4s ease; }
+.revealed { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 600px){ .hero h1 { font-size: 28px; } }
