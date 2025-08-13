@@ -199,7 +199,30 @@
 		atualizarGraficoCotacao();
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
-	function agruparHistorico(ativo, resolucaoMin){ const pontos=historicoCotacoes[ativo]||[]; if(pontos.length===0) return { labels:[], valores:[] }; const bucketMs=resolucaoMin*60*1000; const buckets=new Map(); for(const p of pontos){ const chave=Math.floor(p.ts/bucketMs)*bucketMs; if(!buckets.has(chave)){ buckets.set(chave, { soma:0, qtd:0, ultimo:p.preco }); } const b=buckets.get(chave); b.soma+=p.preco; b.qtd+=1; b.ultimo=p.preco; } const chavesOrdenadas=Array.from(buckets.keys()).sort((a,b)=>a-b); const labels=chavesOrdenadas.map(ts=>formatarHoraMinuto(new Date(ts))); const valores=chavesOrdenadas.map(ts=>buckets.get(ts).ultimo); return { labels, valores }; }
+	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
+	function agruparHistorico(ativo, resolucaoMin){
+		const pontos=historicoCotacoes[ativo]||[];
+		if(pontos.length===0) return { labels:[], valores:[] };
+		const bucketMs=resolucaoMin*60*1000;
+		const buckets=new Map();
+		for(const p of pontos){
+			const chave=Math.floor(p.ts/bucketMs)*bucketMs;
+			if(!buckets.has(chave)){
+				buckets.set(chave, { soma:0, qtd:0, ultimo:p.preco });
+			}
+			const b=buckets.get(chave);
+			b.soma+=p.preco; b.qtd+=1; b.ultimo=p.preco;
+		}
+		const chavesOrdenadas=Array.from(buckets.keys()).sort((a,b)=>a-b);
+		// Fallback: se só há 1 bucket, retornar pontos brutos com HH:MM:SS
+		if (chavesOrdenadas.length<=1){
+			const ultimos = pontos.slice(-Math.min(30, pontos.length));
+			return { labels: ultimos.map(p=>formatarHoraMinutoSeg(new Date(p.ts))), valores: ultimos.map(p=>p.preco) };
+		}
+		const labels=chavesOrdenadas.map(ts=>formatarHoraMinuto(new Date(ts)));
+		const valores=chavesOrdenadas.map(ts=>buckets.get(ts).ultimo);
+		return { labels, valores };
+	}
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
 	function agruparOHLC(valores, resolucaoMin){
