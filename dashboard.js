@@ -17,7 +17,7 @@
 
 	document.addEventListener('DOMContentLoaded', function(){
 		const cpf = HBShared.getSessionCPF();
-		if (!cpf){ window.location.href = 'index.html'; return; }
+		if (!cpf){ window.location.href = 'login.html'; return; }
 		usuarios = HBShared.getUsuarios();
 		contas = HBShared.getContas();
 		ativosB3 = HBShared.getAtivos();
