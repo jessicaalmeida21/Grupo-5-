@@ -37,6 +37,40 @@ let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
 let tipoGraficoAtual = 'candlestick'; // candlestick por padrão
 
+function registrarPluginFinanceiro() {
+  try {
+    const financial = window['chartjs-chart-financial'];
+    if (financial) {
+      // Registra controladores/elementos se ainda não estiverem registrados
+      Chart.register(
+        financial.CandlestickController,
+        financial.OhlcController,
+        financial.CandlestickElement,
+        financial.OhlcElement
+      );
+    }
+  } catch (e) {
+    // silencioso: caso o plugin já esteja registrado ou indisponível
+  }
+}
+
+function semearHistoricoInicial(minutos = 60, tickIntervalSeg = 10) {
+  const agora = Date.now();
+  const inicio = agora - minutos * 60 * 1000;
+  for (let ativo in ativosB3) {
+    if (!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
+    if (historicoCotacoes[ativo].length >= 3) continue; // já possui histórico suficiente
+    let preco = ativosB3[ativo];
+    for (let t = inicio; t <= agora; t += tickIntervalSeg * 1000) {
+      // variação pequena a cada tick
+      const variacao = (Math.random() - 0.5) * 0.1;
+      preco = parseFloat(Math.max(0.01, (preco + variacao)).toFixed(2));
+      const vol = Math.floor(500 + Math.random() * 4500);
+      historicoCotacoes[ativo].push({ ts: t, preco, vol });
+    }
+  }
+}
+
 // Função de login
 function login() {
   const cpf = document.getElementById('cpf').value;
@@ -295,6 +329,9 @@ function preencherSelectAtivosGrafico() {
 function inicializarGraficoCotacao() {
   const canvas = document.getElementById('graficoCotacao');
   if (!canvas) return;
+
+  registrarPluginFinanceiro();
+  semearHistoricoInicial(60, 10);
 
   // Listeners de UI
   const selectAtivo = document.getElementById('ativoGrafico');
