@@ -31,6 +31,8 @@ let precoAlvo = null;
 // Estado do gráfico de cotação
 let graficoCotacaoInstance = null;
 let graficoRSIInstance = null;
+let graficoVolumeInstance = null;
+let graficoMACDInstance = null;
 let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
 let tipoGraficoAtual = 'candlestick'; // candlestick por padrão
@@ -346,6 +348,25 @@ function inicializarGraficoCotacao() {
     }
   });
 
+  // Chart Volume
+  const volCanvas = document.getElementById('graficoVolume');
+  if (graficoVolumeInstance) graficoVolumeInstance.destroy();
+  if (volCanvas) {
+    graficoVolumeInstance = new Chart(volCanvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ label: 'Volume', data: [], backgroundColor: [], borderWidth: 0 }] },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, ticks: { display: false } },
+          y: { beginAtZero: true, ticks: { maxTicksLimit: 3 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
   // Chart RSI secundário
   const rsiCanvas = document.getElementById('graficoRSI');
   if (graficoRSIInstance) graficoRSIInstance.destroy();
@@ -365,12 +386,39 @@ function inicializarGraficoCotacao() {
     });
   }
 
+  // Chart MACD
+  const macdCanvas = document.getElementById('graficoMACD');
+  if (graficoMACDInstance) graficoMACDInstance.destroy();
+  if (macdCanvas) {
+    graficoMACDInstance = new Chart(macdCanvas.getContext('2d'), {
+      data: {
+        labels: [],
+        datasets: [
+          { type: 'bar', label: 'Hist', data: [], backgroundColor: 'rgba(120, 144, 156, 0.5)', borderWidth: 0 },
+          { type: 'line', label: 'MACD', data: [], borderColor: 'rgba(3, 169, 244, 1)', backgroundColor: 'rgba(3, 169, 244, 0.1)', pointRadius: 0, borderWidth: 1.5 },
+          { type: 'line', label: 'Signal', data: [], borderColor: 'rgba(255, 152, 0, 1)', backgroundColor: 'rgba(255, 152, 0, 0.1)', pointRadius: 0, borderWidth: 1.5 }
+        ]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
+          y: { ticks: { maxTicksLimit: 5 } }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
   // Checkboxes dos indicadores
   const cbEma9 = document.getElementById('indEma9');
   const cbEma21 = document.getElementById('indEma21');
   const cbSma50 = document.getElementById('indSma50');
   const cbBb = document.getElementById('indBb');
   const cbRsi = document.getElementById('indRsi');
+  const cbVol = document.getElementById('indVolume');
+  const cbMacd = document.getElementById('indMacd');
   if (cbEma9) cbEma9.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(1).hidden = !cbEma9.checked; graficoCotacaoInstance.update(); });
   if (cbEma21) cbEma21.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(2).hidden = !cbEma21.checked; graficoCotacaoInstance.update(); });
   if (cbSma50) cbSma50.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(3).hidden = !cbSma50.checked; graficoCotacaoInstance.update(); });
@@ -385,6 +433,16 @@ function inicializarGraficoCotacao() {
     if (!el) return;
     if (cbRsi.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
   });
+  if (cbVol) cbVol.addEventListener('change', () => {
+    const el = document.getElementById('graficoVolume');
+    if (!el) return;
+    if (cbVol.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
+  });
+  if (cbMacd) cbMacd.addEventListener('change', () => {
+    const el = document.getElementById('graficoMACD');
+    if (!el) return;
+    if (cbMacd.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
+  });
 
   registrarHistoricoCotacao();
   atualizarGraficoCotacao();
@@ -394,7 +452,9 @@ function registrarHistoricoCotacao() {
   const agora = Date.now();
   for (let ativo in ativosB3) {
     if (!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
-    historicoCotacoes[ativo].push({ ts: agora, preco: ativosB3[ativo] });
+    // volume sintético por tick
+    const vol = Math.floor(500 + Math.random() * 4500);
+    historicoCotacoes[ativo].push({ ts: agora, preco: ativosB3[ativo], vol });
     // Limpeza do histórico (24h)
     const limite = agora - MAX_HISTORY_MS;
     while (historicoCotacoes[ativo].length > 0 && historicoCotacoes[ativo][0].ts < limite) {
@@ -410,7 +470,7 @@ function atualizarGraficoCotacao() {
   const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
 
-  // Calcula fechamentos
+  // Fechamentos
   const closes = candles.map(c => ({ x: c.x, v: c.c }));
   // Indicadores
   const ema9 = calcularEMA(closes, 9);
@@ -428,11 +488,34 @@ function atualizarGraficoCotacao() {
 
   graficoCotacaoInstance.update();
 
+  // Volume
+  if (graficoVolumeInstance) {
+    const volData = candles.map(c => ({ x: c.x, y: c.v || 0 }));
+    const colors = candles.map(c => (c.c >= c.o ? 'rgba(76, 175, 80, 0.6)' : 'rgba(229, 57, 53, 0.6)'));
+    graficoVolumeInstance.data.labels = volData.map(p => p.x);
+    graficoVolumeInstance.data.datasets[0].data = volData.map(p => ({ x: p.x, y: p.y }));
+    graficoVolumeInstance.data.datasets[0].backgroundColor = colors;
+    graficoVolumeInstance.options.scales.x.time.unit = unit;
+    graficoVolumeInstance.update();
+  }
+
+  // RSI
   if (graficoRSIInstance) {
     graficoRSIInstance.data.labels = rsi.map(p => p.x);
     graficoRSIInstance.data.datasets[0].data = rsi.map(p => ({ x: p.x, y: p.v }));
     graficoRSIInstance.options.scales.x.time.unit = unit;
     graficoRSIInstance.update();
+  }
+
+  // MACD
+  if (graficoMACDInstance) {
+    const macd = calcularMACD(closes, 12, 26, 9);
+    graficoMACDInstance.data.labels = macd.map(p => p.x);
+    graficoMACDInstance.data.datasets[0].data = macd.map(p => ({ x: p.x, y: p.hist }));
+    graficoMACDInstance.data.datasets[1].data = macd.map(p => ({ x: p.x, y: p.macd }));
+    graficoMACDInstance.data.datasets[2].data = macd.map(p => ({ x: p.x, y: p.signal }));
+    graficoMACDInstance.options.scales.x.time.unit = unit;
+    graficoMACDInstance.update();
   }
 }
 
@@ -455,11 +538,13 @@ function calcularOHLC(ativo, resolucaoMin) {
     const close = arr[arr.length - 1].preco;
     let high = -Infinity;
     let low = Infinity;
+    let vol = 0;
     for (const it of arr) {
       if (it.preco > high) high = it.preco;
       if (it.preco < low) low = it.preco;
+      vol += it.vol || 0;
     }
-    return { x: ts, o: open, h: high, l: low, c: close };
+    return { x: ts, o: open, h: high, l: low, c: close, v: vol };
   });
   return candles;
 }
@@ -837,6 +922,27 @@ function calcularRSI(series, period) {
     avgLoss = ((avgLoss * (period - 1)) + loss) / period;
     const rs = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
     out.push({ x: series[i].x, v: rs });
+  }
+  return out;
+}
+
+function calcularMACD(series, fast, slow, signalPeriod) {
+  if (series.length === 0) return [];
+  const emaFast = calcularEMA(series, fast);
+  const emaSlow = calcularEMA(series, slow);
+  // alinhar pelo menor comprimento e timestamps
+  const mapSlow = new Map(emaSlow.map(p => [p.x, p.v]));
+  const macdRaw = [];
+  for (const p of emaFast) {
+    if (mapSlow.has(p.x)) macdRaw.push({ x: p.x, v: p.v - mapSlow.get(p.x) });
+  }
+  // sinal sobre os valores macd
+  const macdSignalArr = calcularEMA(macdRaw, signalPeriod);
+  const mapSignal = new Map(macdSignalArr.map(p => [p.x, p.v]));
+  const out = [];
+  for (const m of macdRaw) {
+    const s = mapSignal.get(m.x);
+    if (typeof s === 'number') out.push({ x: m.x, macd: m.v, signal: s, hist: m.v - s });
   }
   return out;
 }
