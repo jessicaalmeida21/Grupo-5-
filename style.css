@@ -391,3 +391,9 @@ body.dark-mode #configuracao select {
 .revealed { opacity: 1; transform: translateY(0); }
 
 @media (max-width: 600px){ .hero h1 { font-size: 28px; } }
+
+#graficoCotacao {
+  width: 100%;
+  height: 260px;
+  display: block;
+}

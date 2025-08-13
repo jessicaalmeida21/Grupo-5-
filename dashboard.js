@@ -296,7 +296,8 @@
 		ajustarCanvas();
 		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
-		registrarHistoricoCotacao();
+		// pré-popula histórico com 30 pontos para formar velas
+		for(let i=0;i<30;i++){ registrarHistoricoCotacao(); }
 		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
 		atualizarGraficoCotacao();
 	}
@@ -309,7 +310,7 @@
 		const selectRes = document.getElementById('resolucaoGrafico');
 		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
 		const { labels, candles } = agruparOHLC(ativoGraficoAtual, step);
-		desenharCandles(labels.slice(-30), candles.slice(-30));
+		desenharCandles(labels.slice(-60), candles.slice(-60));
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
