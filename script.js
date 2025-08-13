@@ -324,8 +324,10 @@ function inicializarGraficoCotacao() {
         {
           label: 'Candles',
           data: [],
-          color: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-          borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' }
+          color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
+          borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+          wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+          borderWidth: 1
         },
         // Overlays de indicadores (linhas)
         { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
@@ -342,8 +344,8 @@ function inicializarGraficoCotacao() {
       parsing: false,
       plugins: { legend: { display: true } },
       scales: {
-        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
-        y: { beginAtZero: false }
+        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       }
     }
   });
@@ -359,8 +361,8 @@ function inicializarGraficoCotacao() {
         responsive: true,
         animation: false,
         scales: {
-          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, ticks: { display: false } },
-          y: { beginAtZero: true, ticks: { maxTicksLimit: 3 } }
+          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          y: { beginAtZero: true, ticks: { maxTicksLimit: 3 }, grid: { color: 'rgba(0,0,0,0.05)' } }
         },
         plugins: { legend: { display: false } }
       }
@@ -373,13 +375,20 @@ function inicializarGraficoCotacao() {
   if (rsiCanvas) {
     graficoRSIInstance = new Chart(rsiCanvas.getContext('2d'), {
       type: 'line',
-      data: { labels: [], datasets: [{ label: 'RSI 14', data: [], borderColor: 'rgba(41, 182, 246, 1)', backgroundColor: 'rgba(41, 182, 246, 0.1)', pointRadius: 0, borderWidth: 1 }] },
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'RSI 14', data: [], borderColor: 'rgba(41, 182, 246, 1)', backgroundColor: 'rgba(41, 182, 246, 0.1)', pointRadius: 0, borderWidth: 1 },
+          { label: 'RSI 70', data: [], borderColor: 'rgba(244, 67, 54, 0.8)', borderDash: [6, 4], pointRadius: 0, borderWidth: 1, fill: false },
+          { label: 'RSI 30', data: [], borderColor: 'rgba(76, 175, 80, 0.8)', borderDash: [6, 4], pointRadius: 0, borderWidth: 1, fill: false }
+        ]
+      },
       options: {
         responsive: true,
         animation: false,
         scales: {
-          x: { display: true, adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
-          y: { min: 0, max: 100, ticks: { stepSize: 20 } }
+          x: { display: true, adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: { color: 'rgba(0,0,0,0.06)' } }
         },
         plugins: { legend: { display: true } }
       }
@@ -503,6 +512,10 @@ function atualizarGraficoCotacao() {
   if (graficoRSIInstance) {
     graficoRSIInstance.data.labels = rsi.map(p => p.x);
     graficoRSIInstance.data.datasets[0].data = rsi.map(p => ({ x: p.x, y: p.v }));
+    // Linhas 70/30
+    const rsiLabels = rsi.map(p => p.x);
+    graficoRSIInstance.data.datasets[1].data = rsiLabels.map(x => ({ x, y: 70 }));
+    graficoRSIInstance.data.datasets[2].data = rsiLabels.map(x => ({ x, y: 30 }));
     graficoRSIInstance.options.scales.x.time.unit = unit;
     graficoRSIInstance.update();
   }
@@ -515,6 +528,8 @@ function atualizarGraficoCotacao() {
     graficoMACDInstance.data.datasets[1].data = macd.map(p => ({ x: p.x, y: p.macd }));
     graficoMACDInstance.data.datasets[2].data = macd.map(p => ({ x: p.x, y: p.signal }));
     graficoMACDInstance.options.scales.x.time.unit = unit;
+    graficoMACDInstance.options.scales.x.grid = { color: 'rgba(0,0,0,0.06)' };
+    graficoMACDInstance.options.scales.y.grid = { color: 'rgba(0,0,0,0.06)' };
     graficoMACDInstance.update();
   }
 }
