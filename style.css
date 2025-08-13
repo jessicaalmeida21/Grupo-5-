@@ -289,27 +289,35 @@ body.dark-mode #configuracao select {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
-.login-actions {
-  margin-top: 16px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.login-actions { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.login-actions .left { display: flex; align-items: center; gap: 8px; }
+.login-actions .right { margin-left: auto; }
+
+.link { color: #15803d; text-decoration: none; font-weight: 500; }
+.link:hover { color: #166534; text-decoration: underline; }
+
+.login-actions .btn-primary.disabled,
+.login-actions .btn-primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
-.login-actions .btn-primary {
-  flex: 1;
-  height: 42px;
-  background: #16a34a;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
+.btn-primary.loading { position: relative; }
+.btn-primary.loading::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
 }
 
-.login-actions .btn-primary:hover {
-  background: #15803d;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .login-meta {
   margin-top: 10px;
