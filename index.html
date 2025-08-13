@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="container">
-    <div id="login">
+          <div id="login">
       <h1>E2E Treinamentos Brokers</h1>
       <h2>Login</h2>
       <p>Use:</p>
@@ -25,6 +25,27 @@
       </label><br />
       <button class="btn-azul" onclick="login()">Entrar</button>
       <div id="loginMsg" class="error"></div>
+
+      <hr />
+      <h2>Cadastrar nova conta</h2>
+      <label>Nome: <input type="text" id="nomeCadastro" placeholder="Seu nome" /></label><br />
+      <label>CPF: <input type="text" id="cpfCadastro" placeholder="000.000.000-00" /></label><br />
+      <label>Whatsapp: <input type="text" id="whatsappCadastro" placeholder="(00) 90000-0000" /></label><br />
+      <label>Email: <input type="email" id="emailCadastro" placeholder="voce@exemplo.com" /></label><br />
+      <label>Senha:
+        <span class="senha-wrapper">
+          <input type="password" id="senhaCadastro" placeholder="Senha" />
+          <span class="toggleSenha" onclick="toggleSenha('senhaCadastro', this)">👁️</span>
+        </span>
+      </label><br />
+      <label>Confirme a Senha:
+        <span class="senha-wrapper">
+          <input type="password" id="confirmarSenhaCadastro" placeholder="Confirme a senha" />
+          <span class="toggleSenha" onclick="toggleSenha('confirmarSenhaCadastro', this)">👁️</span>
+        </span>
+      </label><br />
+      <button class="btn-azul" onclick="cadastrarUsuario()">Cadastrar</button>
+      <div id="cadastroMsg" class="success"></div>
     </div>
 
     <div id="portal" class="hidden">
@@ -41,7 +62,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <div style="flex: 1">
+                 <div style="flex: 1">
           <h3>Book de Ofertas (B3)</h3>
           <div class="scrollable">
             <table id="book">
@@ -49,6 +70,26 @@
               <tbody></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div class="flex">
+        <div style="flex: 1">
+          <h3>Cotação em tempo real</h3>
+          <div>
+            <label for="ativoGrafico">Ativo:</label>
+            <select id="ativoGrafico"></select>
+            <label for="resolucaoGrafico">Resolução:</label>
+            <select id="resolucaoGrafico">
+              <option value="1">1 minuto</option>
+              <option value="5">5 minutos</option>
+              <option value="30">30 minutos</option>
+              <option value="60">1 hora</option>
+            </select>
+            <button class="btn-azul" onclick="exportarCotacoesXLSX()">Exportar XLSX</button>
+            <button class="btn-azul" onclick="exportarCotacoesJSON()">Exportar JSON</button>
+          </div>
+          <canvas id="graficoCotacao" height="200"></canvas>
         </div>
       </div>
 
@@ -119,7 +160,9 @@
 
       <!-- Relatórios -->
       <div>
-        <button class="btn-azul" onclick="baixarRelatorio()">Baixar Relatório de Operações</button>
+        <button class="btn-azul" onclick="baixarRelatorio()">Baixar Relatório de Operações (CSV)</button>
+        <button class="btn-azul" onclick="exportarOrdensXLSX()">Exportar Ordens do Dia (XLSX)</button>
+        <button class="btn-azul" onclick="exportarOrdensJSON()">Exportar Ordens do Dia (JSON)</button>
       </div>
 
       <!-- Ferramentas de Análise -->
@@ -138,6 +181,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
