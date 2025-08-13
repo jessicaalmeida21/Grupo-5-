@@ -9,6 +9,11 @@ const ativosB3 = {
   ABEV3: 14.25, MGLU3: 3.45, BBAS3: 49.10, LREN3: 18.30
 };
 
+// Histórico de cotações intradiário em memória (últimas 24h)
+const historicoCotacoes = {};
+Object.keys(ativosB3).forEach(ativo => { historicoCotacoes[ativo] = []; });
+const MAX_HISTORY_MS = 24 * 60 * 60 * 1000;
+
 const contas = {
   A: { nome: "Conta A", saldo: 100000, carteira: { PETR4: 300, VALE3: 200, ITUB4: 100 } },
   B: { nome: "Conta B", saldo: 10, carteira: { MGLU3: 100, BBAS3: 100 } }
@@ -23,6 +28,11 @@ let cpfAtual = "";
 let alertaAtivo = false;
 let precoAlvo = null;
 
+// Estado do gráfico de cotação
+let graficoCotacaoInstance = null;
+let ativoGraficoAtual = null;
+let resolucaoMinutosAtual = 1;
+
 // Função de login
 function login() {
   const cpf = document.getElementById('cpf').value;
@@ -30,7 +40,8 @@ function login() {
   const user = usuarios[cpf];
   if (user && user.senha === senha) {
     cpfAtual = cpf;
-    usuarioAtual = JSON.parse(JSON.stringify(contas[user.conta]));
+    const contaRef = contas[user.conta];
+    usuarioAtual = JSON.parse(JSON.stringify(contaRef));
     usuarioAtual.cpf = cpf;
     extrato = [];
     ordens = [];
@@ -42,6 +53,8 @@ function login() {
     atualizarCarteira();
     atualizarBook();
     preencherSelectAtivos();
+    preencherSelectAtivosGrafico();
+    inicializarGraficoCotacao();
     atualizarExtrato();
     atualizarOrdens();
     document.getElementById('senhaMsg').innerText = "";
@@ -137,6 +150,66 @@ function baixarRelatorio() {
   alert("Relatório de operações baixado.");
 }
 
+// Exports de ordens do dia (JSON/XLSX)
+function exportarOrdensJSON() {
+  const ordensHoje = filtrarOrdensHoje();
+  if (ordensHoje.length === 0) {
+    alert("Nenhuma ordem enviada hoje.");
+    return;
+  }
+  const jsonStr = JSON.stringify(ordensHoje, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ordens_${formatarDataArquivo(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportarOrdensXLSX() {
+  const ordensHoje = filtrarOrdensHoje();
+  if (ordensHoje.length === 0) {
+    alert("Nenhuma ordem enviada hoje.");
+    return;
+  }
+  const dados = ordensHoje.map(o => ({
+    "Data/Hora": o.dataHora,
+    "Tipo": o.tipo,
+    "Ativo": o.ativo,
+    "Quantidade": o.qtd,
+    "Valor (R$)": o.valor,
+    "Cotação (R$)": o.cotacao,
+    "Total (R$)": o.total,
+    "Status": o.status
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(dados);
+  XLSX.utils.book_append_sheet(wb, ws, 'OrdensHoje');
+  XLSX.writeFile(wb, `ordens_${formatarDataArquivo(new Date())}.xlsx`);
+}
+
+function filtrarOrdensHoje() {
+  const agora = new Date();
+  const inicioDia = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+  const fimDia = inicioDia + 24 * 60 * 60 * 1000;
+  return ordens.filter(o => {
+    const ts = typeof o.timestamp === 'number' ? o.timestamp : Date.now();
+    return ts >= inicioDia && ts < fimDia;
+  });
+}
+
+function formatarDataArquivo(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}_${hh}${mi}`;
+}
+
 // Função para acessar ferramentas de análise
 function acessarAnalise() {
   if (extrato.length === 0) {
@@ -196,6 +269,134 @@ function criarGraficoAnalise() {
   });
 }
 
+// ============================
+// Gráfico de cotação em tempo real
+// ============================
+function preencherSelectAtivosGrafico() {
+  const select = document.getElementById('ativoGrafico');
+  if (!select) return;
+  select.innerHTML = '';
+  for (let ativo in ativosB3) {
+    const opt = document.createElement('option');
+    opt.value = ativo;
+    opt.textContent = ativo;
+    select.appendChild(opt);
+  }
+  // Seleciona primeiro ativo por padrão
+  const primeiro = Object.keys(ativosB3)[0];
+  select.value = primeiro;
+  ativoGraficoAtual = primeiro;
+}
+
+function inicializarGraficoCotacao() {
+  const canvas = document.getElementById('graficoCotacao');
+  if (!canvas) return;
+
+  // Listeners de UI
+  const selectAtivo = document.getElementById('ativoGrafico');
+  const selectRes = document.getElementById('resolucaoGrafico');
+  if (selectAtivo) {
+    selectAtivo.addEventListener('change', () => {
+      ativoGraficoAtual = selectAtivo.value;
+      atualizarGraficoCotacao();
+    });
+  }
+  if (selectRes) {
+    selectRes.addEventListener('change', () => {
+      resolucaoMinutosAtual = parseInt(selectRes.value, 10);
+      atualizarGraficoCotacao();
+    });
+    resolucaoMinutosAtual = parseInt(selectRes.value, 10);
+  }
+
+  // Cria instância
+  const ctx = canvas.getContext('2d');
+  if (graficoCotacaoInstance) {
+    graficoCotacaoInstance.destroy();
+  }
+  graficoCotacaoInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Cotação (R$)',
+        data: [],
+        borderColor: 'rgba(46, 134, 193, 1)',
+        backgroundColor: 'rgba(46, 134, 193, 0.2)',
+        fill: false,
+        tension: 0.15,
+        pointRadius: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      scales: {
+        y: { beginAtZero: false },
+        x: { ticks: { maxRotation: 0 } }
+      },
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+
+  // Registra um snapshot inicial
+  registrarHistoricoCotacao();
+  atualizarGraficoCotacao();
+}
+
+function registrarHistoricoCotacao() {
+  const agora = Date.now();
+  for (let ativo in ativosB3) {
+    if (!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
+    historicoCotacoes[ativo].push({ ts: agora, preco: ativosB3[ativo] });
+    // Limpeza do histórico (24h)
+    const limite = agora - MAX_HISTORY_MS;
+    while (historicoCotacoes[ativo].length > 0 && historicoCotacoes[ativo][0].ts < limite) {
+      historicoCotacoes[ativo].shift();
+    }
+  }
+}
+
+function atualizarGraficoCotacao() {
+  if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
+  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
+  graficoCotacaoInstance.data.labels = labels;
+  graficoCotacaoInstance.data.datasets[0].data = valores;
+  graficoCotacaoInstance.update();
+}
+
+function agruparHistorico(ativo, resolucaoMin) {
+  const pontos = historicoCotacoes[ativo] || [];
+  if (pontos.length === 0) return { labels: [], valores: [] };
+
+  const bucketMs = resolucaoMin * 60 * 1000;
+  const buckets = new Map();
+
+  for (const p of pontos) {
+    const chave = Math.floor(p.ts / bucketMs) * bucketMs;
+    if (!buckets.has(chave)) {
+      buckets.set(chave, { soma: 0, qtd: 0, ultimo: p.preco });
+    }
+    const b = buckets.get(chave);
+    b.soma += p.preco;
+    b.qtd += 1;
+    b.ultimo = p.preco; // valor de fechamento do bucket
+  }
+
+  const chavesOrdenadas = Array.from(buckets.keys()).sort((a, b) => a - b);
+  const labels = chavesOrdenadas.map(ts => formatarHoraMinuto(new Date(ts)));
+  const valores = chavesOrdenadas.map(ts => buckets.get(ts).ultimo);
+  return { labels, valores };
+}
+
+function formatarHoraMinuto(d) {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 // Funções de operações de compra e venda
 function atualizarCarteira() {
   const tbody = document.querySelector("#carteira tbody");
@@ -253,9 +454,9 @@ function atualizarExtrato() {
 
 // Função de cancelamento de ordens
 function cancelarOrdem(id) {
-  const index = ordens.findIndex(o => o.id === id && o.status === "Aceita");
-  if (index !== -1) {
-    ordens.splice(index, 1);
+  const ordem = ordens.find(o => o.id === id && o.status === "Aceita");
+  if (ordem) {
+    ordem.status = "Cancelada";
     atualizarOrdens();
     document.getElementById("mensagem").innerText = "Ordem cancelada.";
   }
@@ -292,12 +493,13 @@ function executarOperacao() {
   }
 
   if (Math.abs(valor - cotacao) > 5) {
-    ordens.unshift({ tipo, ativo, qtd, valor, total, cotacao, status: "Rejeitada", id: Date.now(), dataHora: new Date().toLocaleString() });
+    ordens.unshift({ tipo, ativo, qtd, valor, total, cotacao, status: "Rejeitada", id: Date.now(), dataHora: new Date().toLocaleString(), timestamp: Date.now() });
     atualizarOrdens();
     document.getElementById("mensagem").innerText = "Ordem rejeitada (diferença > R$5).";
     return;
   }
 
+  const agoraTs = Date.now();
   const ordem = {
     tipo,
     ativo,
@@ -306,8 +508,9 @@ function executarOperacao() {
     total,
     cotacao,
     status: valor === cotacao ? "Executada" : "Aceita",
-    id: Date.now(),
-    dataHora: new Date().toLocaleString()
+    id: agoraTs,
+    dataHora: new Date(agoraTs).toLocaleString(),
+    timestamp: agoraTs
   };
 
   if (ordem.status === "Executada") {
@@ -345,6 +548,9 @@ setInterval(() => {
     if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01;
   }
 
+  // Registrar histórico de cotações
+  registrarHistoricoCotacao();
+
   // Verificar ordens aceitas e executar se preço bate
   ordens.forEach(o => {
     if (o.status === "Aceita") {
@@ -354,6 +560,7 @@ setInterval(() => {
         aplicarOrdem(o);
         o.status = "Executada";
         o.dataHora = new Date().toLocaleString();
+        o.timestamp = Date.now();
         extrato.unshift(o);
 
         // Se alerta ativo, verificar preço
@@ -371,6 +578,7 @@ setInterval(() => {
   atualizarOrdens();
   atualizarCarteira();
   atualizarExtrato();
+  atualizarGraficoCotacao();
 }, 10000);
 
 // Função para alterar senha
@@ -387,4 +595,99 @@ function alterarSenha() {
   usuarios[cpfAtual].senha = novaSenha;
   document.getElementById('senhaMsg').innerText = "Senha alterada com sucesso!";
   document.getElementById('novaSenha').value = "";
+}
+
+// Cadastro de novo usuário
+function cadastrarUsuario() {
+  const nome = document.getElementById('nomeCadastro').value.trim();
+  const cpf = document.getElementById('cpfCadastro').value.trim();
+  const whatsapp = document.getElementById('whatsappCadastro').value.trim();
+  const email = document.getElementById('emailCadastro').value.trim();
+  const senha = document.getElementById('senhaCadastro').value;
+  const senha2 = document.getElementById('confirmarSenhaCadastro').value;
+  const msg = document.getElementById('cadastroMsg');
+  msg.classList.remove('error');
+  msg.classList.add('success');
+  msg.innerText = '';
+
+  // Validações básicas
+  if (!nome || !cpf || !whatsapp || !email || !senha || !senha2) {
+    msg.classList.remove('success');
+    msg.classList.add('error');
+    msg.innerText = 'Preencha todos os campos.';
+    return;
+  }
+  if (usuarios[cpf]) {
+    msg.classList.remove('success');
+    msg.classList.add('error');
+    msg.innerText = 'CPF já cadastrado.';
+    return;
+  }
+  if (senha !== senha2) {
+    msg.classList.remove('success');
+    msg.classList.add('error');
+    msg.innerText = 'As senhas não conferem.';
+    return;
+  }
+  if (!/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
+    msg.classList.remove('success');
+    msg.classList.add('error');
+    msg.innerText = 'Email inválido.';
+    return;
+  }
+
+  // Cria uma nova conta vinculada
+  const contaId = `U${Date.now()}`;
+  contas[contaId] = {
+    nome,
+    saldo: 50000,
+    carteira: {}
+  };
+
+  // Salva usuário
+  usuarios[cpf] = {
+    senha,
+    conta: contaId,
+    nome,
+    whatsapp,
+    email
+  };
+
+  msg.innerText = 'Conta cadastrada com sucesso! Você já pode fazer login.';
+
+  // Limpa campos
+  document.getElementById('nomeCadastro').value = '';
+  document.getElementById('cpfCadastro').value = '';
+  document.getElementById('whatsappCadastro').value = '';
+  document.getElementById('emailCadastro').value = '';
+  document.getElementById('senhaCadastro').value = '';
+  document.getElementById('confirmarSenhaCadastro').value = '';
+}
+
+// Exportações do gráfico de cotação atual
+function exportarCotacoesJSON() {
+  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
+  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
+  const registros = labels.map((lb, i) => ({ periodo: lb, preco: valores[i] }));
+  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
+  const blob = new Blob([JSON.stringify({ ativo: ativoGraficoAtual, resolucaoMinutos: resolucaoMinutosAtual, dados: registros }, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportarCotacoesXLSX() {
+  if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
+  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
+  const registros = labels.map((lb, i) => ({ 'Período': lb, 'Preço (R$)': valores[i] }));
+  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(registros);
+  XLSX.utils.book_append_sheet(wb, ws, `${ativoGraficoAtual}_${resolucaoMinutosAtual}m`);
+  XLSX.writeFile(wb, `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.xlsx`);
 }
