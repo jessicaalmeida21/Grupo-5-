@@ -218,3 +218,14 @@ body.dark-mode .modal-content {
 .close:hover {
   color: #444;
 }
+
+body.dark-mode #configuracao label {
+  color: #0d3b66 !important;
+}
+
+body.dark-mode #configuracao input,
+body.dark-mode #configuracao select {
+  background-color: #555 !important;
+  color: #eee !important;
+  border-color: #888 !important;
+}
