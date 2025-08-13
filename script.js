@@ -32,6 +32,7 @@ let precoAlvo = null;
 let graficoCotacaoInstance = null;
 let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
+let tipoGraficoAtual = 'candlestick'; // candlestick por padrão
 
 // Função de login
 function login() {
@@ -309,39 +310,46 @@ function inicializarGraficoCotacao() {
     resolucaoMinutosAtual = parseInt(selectRes.value, 10);
   }
 
-  // Cria instância
   const ctx = canvas.getContext('2d');
   if (graficoCotacaoInstance) {
     graficoCotacaoInstance.destroy();
   }
+  // Usando chartjs-chart-financial para Candlestick
   graficoCotacaoInstance = new Chart(ctx, {
-    type: 'line',
+    type: 'candlestick',
     data: {
-      labels: [],
       datasets: [{
-        label: 'Cotação (R$)',
+        label: 'Candles',
         data: [],
-        borderColor: 'rgba(76, 175, 80, 1)',
-        backgroundColor: 'rgba(76, 175, 80, 0.2)',
-        fill: false,
-        tension: 0.15,
-        pointRadius: 1
+        color: {
+          up: 'rgba(76, 175, 80, 1)',
+          down: 'rgba(229, 57, 53, 1)',
+          unchanged: 'rgba(158, 158, 158, 1)'
+        },
+        borderColor: {
+          up: 'rgba(76, 175, 80, 1)',
+          down: 'rgba(229, 57, 53, 1)',
+          unchanged: 'rgba(158, 158, 158, 1)'
+        }
       }]
     },
     options: {
       responsive: true,
       animation: false,
+      parsing: false,
+      plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: false },
-        x: { ticks: { maxRotation: 0 } }
-      },
-      plugins: {
-        legend: { display: true }
+        x: {
+          adapters: { date: { zone: 'utc' } },
+          type: 'time',
+          time: { unit: 'minute' }
+        },
+        y: { beginAtZero: false }
       }
     }
   });
 
-  // Registra um snapshot inicial
+  // Snapshot inicial
   registrarHistoricoCotacao();
   atualizarGraficoCotacao();
 }
@@ -361,34 +369,40 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-  graficoCotacaoInstance.data.labels = labels;
-  graficoCotacaoInstance.data.datasets[0].data = valores;
+  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
+  graficoCotacaoInstance.data.datasets[0].data = candles;
+  // Ajusta unidade do eixo X conforme resolução
+  const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
+  graficoCotacaoInstance.options.scales.x.time.unit = unit;
   graficoCotacaoInstance.update();
 }
 
-function agruparHistorico(ativo, resolucaoMin) {
+function calcularOHLC(ativo, resolucaoMin) {
   const pontos = historicoCotacoes[ativo] || [];
-  if (pontos.length === 0) return { labels: [], valores: [] };
-
+  if (pontos.length === 0) return [];
   const bucketMs = resolucaoMin * 60 * 1000;
   const buckets = new Map();
-
   for (const p of pontos) {
     const chave = Math.floor(p.ts / bucketMs) * bucketMs;
     if (!buckets.has(chave)) {
-      buckets.set(chave, { soma: 0, qtd: 0, ultimo: p.preco });
+      buckets.set(chave, []);
     }
-    const b = buckets.get(chave);
-    b.soma += p.preco;
-    b.qtd += 1;
-    b.ultimo = p.preco; // valor de fechamento do bucket
+    buckets.get(chave).push(p);
   }
-
-  const chavesOrdenadas = Array.from(buckets.keys()).sort((a, b) => a - b);
-  const labels = chavesOrdenadas.map(ts => formatarHoraMinuto(new Date(ts)));
-  const valores = chavesOrdenadas.map(ts => buckets.get(ts).ultimo);
-  return { labels, valores };
+  const chaves = Array.from(buckets.keys()).sort((a, b) => a - b);
+  const candles = chaves.map(ts => {
+    const arr = buckets.get(ts).sort((a, b) => a.ts - b.ts);
+    const open = arr[0].preco;
+    const close = arr[arr.length - 1].preco;
+    let high = -Infinity;
+    let low = Infinity;
+    for (const it of arr) {
+      if (it.preco > high) high = it.preco;
+      if (it.preco < low) low = it.preco;
+    }
+    return { x: ts, o: open, h: high, l: low, c: close };
+  });
+  return candles;
 }
 
 function formatarHoraMinuto(d) {
@@ -667,10 +681,10 @@ function cadastrarUsuario() {
 // Exportações do gráfico de cotação atual
 function exportarCotacoesJSON() {
   if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-  const registros = labels.map((lb, i) => ({ periodo: lb, preco: valores[i] }));
-  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
-  const blob = new Blob([JSON.stringify({ ativo: ativoGraficoAtual, resolucaoMinutos: resolucaoMinutosAtual, dados: registros }, null, 2)], { type: 'application/json;charset=utf-8' });
+  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
+  if (candles.length === 0) { alert('Sem dados de cotação no período.'); return; }
+  const payload = candles.map(c => ({ timestamp: c.x, open: c.o, high: c.h, low: c.l, close: c.c }));
+  const blob = new Blob([JSON.stringify({ ativo: ativoGraficoAtual, resolucaoMinutos: resolucaoMinutosAtual, ohlc: payload }, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -683,9 +697,15 @@ function exportarCotacoesJSON() {
 
 function exportarCotacoesXLSX() {
   if (!ativoGraficoAtual) { alert('Selecione um ativo.'); return; }
-  const { labels, valores } = agruparHistorico(ativoGraficoAtual, resolucaoMinutosAtual);
-  const registros = labels.map((lb, i) => ({ 'Período': lb, 'Preço (R$)': valores[i] }));
-  if (registros.length === 0) { alert('Sem dados de cotação no período.'); return; }
+  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
+  if (candles.length === 0) { alert('Sem dados de cotação no período.'); return; }
+  const registros = candles.map(c => ({
+    'Data/Hora': new Date(c.x).toLocaleString(),
+    'Abertura (R$)': c.o,
+    'Máxima (R$)': c.h,
+    'Mínima (R$)': c.l,
+    'Fechamento (R$)': c.c
+  }));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(registros);
   XLSX.utils.book_append_sheet(wb, ws, `${ativoGraficoAtual}_${resolucaoMinutosAtual}m`);
