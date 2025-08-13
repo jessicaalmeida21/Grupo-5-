@@ -92,7 +92,15 @@
             <button class="btn-azul" onclick="exportarCotacoesXLSX()">Exportar XLSX</button>
             <button class="btn-azul" onclick="exportarCotacoesJSON()">Exportar JSON</button>
           </div>
-          <canvas id="graficoCotacao" height="200"></canvas>
+          <div style="margin: 8px 0;">
+            <label><input type="checkbox" id="indEma9" checked /> EMA 9</label>
+            <label><input type="checkbox" id="indEma21" checked /> EMA 21</label>
+            <label><input type="checkbox" id="indSma50" /> SMA 50</label>
+            <label><input type="checkbox" id="indBb" /> Bollinger (20,2)</label>
+            <label><input type="checkbox" id="indRsi" /> RSI 14</label>
+          </div>
+          <canvas id="graficoCotacao" height="260"></canvas>
+          <canvas id="graficoRSI" class="hidden" height="120"></canvas>
         </div>
       </div>
 

@@ -30,6 +30,7 @@ let precoAlvo = null;
 
 // Estado do gráfico de cotação
 let graficoCotacaoInstance = null;
+let graficoRSIInstance = null;
 let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
 let tipoGraficoAtual = 'candlestick'; // candlestick por padrão
@@ -314,42 +315,77 @@ function inicializarGraficoCotacao() {
   if (graficoCotacaoInstance) {
     graficoCotacaoInstance.destroy();
   }
-  // Usando chartjs-chart-financial para Candlestick
   graficoCotacaoInstance = new Chart(ctx, {
     type: 'candlestick',
     data: {
-      datasets: [{
-        label: 'Candles',
-        data: [],
-        color: {
-          up: 'rgba(76, 175, 80, 1)',
-          down: 'rgba(229, 57, 53, 1)',
-          unchanged: 'rgba(158, 158, 158, 1)'
+      datasets: [
+        {
+          label: 'Candles',
+          data: [],
+          color: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+          borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' }
         },
-        borderColor: {
-          up: 'rgba(76, 175, 80, 1)',
-          down: 'rgba(229, 57, 53, 1)',
-          unchanged: 'rgba(158, 158, 158, 1)'
-        }
-      }]
+        // Overlays de indicadores (linhas)
+        { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
+        { label: 'EMA 21', type: 'line', data: [], borderColor: 'rgba(56, 142, 60, 1)', backgroundColor: 'rgba(56, 142, 60, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
+        { label: 'SMA 50', type: 'line', data: [], borderColor: 'rgba(67, 160, 71, 1)', backgroundColor: 'rgba(67, 160, 71, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: true, yAxisID: 'y' },
+        { label: 'BB Upper', type: 'line', data: [], borderColor: 'rgba(76, 175, 80, 0.6)', backgroundColor: 'rgba(76, 175, 80, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' },
+        { label: 'BB Middle', type: 'line', data: [], borderColor: 'rgba(120, 144, 156, 0.7)', backgroundColor: 'rgba(120, 144, 156, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' },
+        { label: 'BB Lower', type: 'line', data: [], borderColor: 'rgba(76, 175, 80, 0.6)', backgroundColor: 'rgba(76, 175, 80, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' }
+      ]
     },
     options: {
       responsive: true,
       animation: false,
       parsing: false,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: true } },
       scales: {
-        x: {
-          adapters: { date: { zone: 'utc' } },
-          type: 'time',
-          time: { unit: 'minute' }
-        },
+        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
         y: { beginAtZero: false }
       }
     }
   });
 
-  // Snapshot inicial
+  // Chart RSI secundário
+  const rsiCanvas = document.getElementById('graficoRSI');
+  if (graficoRSIInstance) graficoRSIInstance.destroy();
+  if (rsiCanvas) {
+    graficoRSIInstance = new Chart(rsiCanvas.getContext('2d'), {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'RSI 14', data: [], borderColor: 'rgba(41, 182, 246, 1)', backgroundColor: 'rgba(41, 182, 246, 0.1)', pointRadius: 0, borderWidth: 1 }] },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: { display: true, adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
+          y: { min: 0, max: 100, ticks: { stepSize: 20 } }
+        },
+        plugins: { legend: { display: true } }
+      }
+    });
+  }
+
+  // Checkboxes dos indicadores
+  const cbEma9 = document.getElementById('indEma9');
+  const cbEma21 = document.getElementById('indEma21');
+  const cbSma50 = document.getElementById('indSma50');
+  const cbBb = document.getElementById('indBb');
+  const cbRsi = document.getElementById('indRsi');
+  if (cbEma9) cbEma9.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(1).hidden = !cbEma9.checked; graficoCotacaoInstance.update(); });
+  if (cbEma21) cbEma21.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(2).hidden = !cbEma21.checked; graficoCotacaoInstance.update(); });
+  if (cbSma50) cbSma50.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(3).hidden = !cbSma50.checked; graficoCotacaoInstance.update(); });
+  if (cbBb) cbBb.addEventListener('change', () => {
+    graficoCotacaoInstance.getDatasetMeta(4).hidden = !cbBb.checked;
+    graficoCotacaoInstance.getDatasetMeta(5).hidden = !cbBb.checked;
+    graficoCotacaoInstance.getDatasetMeta(6).hidden = !cbBb.checked;
+    graficoCotacaoInstance.update();
+  });
+  if (cbRsi) cbRsi.addEventListener('change', () => {
+    const el = document.getElementById('graficoRSI');
+    if (!el) return;
+    if (cbRsi.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
+  });
+
   registrarHistoricoCotacao();
   atualizarGraficoCotacao();
 }
@@ -371,10 +407,33 @@ function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
   const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
   graficoCotacaoInstance.data.datasets[0].data = candles;
-  // Ajusta unidade do eixo X conforme resolução
   const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
+
+  // Calcula fechamentos
+  const closes = candles.map(c => ({ x: c.x, v: c.c }));
+  // Indicadores
+  const ema9 = calcularEMA(closes, 9);
+  const ema21 = calcularEMA(closes, 21);
+  const sma50 = calcularSMA(closes, 50);
+  const bb = calcularBollinger(closes, 20, 2);
+  const rsi = calcularRSI(closes, 14);
+
+  graficoCotacaoInstance.data.datasets[1].data = ema9.map(p => ({ x: p.x, y: p.v }));
+  graficoCotacaoInstance.data.datasets[2].data = ema21.map(p => ({ x: p.x, y: p.v }));
+  graficoCotacaoInstance.data.datasets[3].data = sma50.map(p => ({ x: p.x, y: p.v }));
+  graficoCotacaoInstance.data.datasets[4].data = bb.upper.map(p => ({ x: p.x, y: p.v }));
+  graficoCotacaoInstance.data.datasets[5].data = bb.middle.map(p => ({ x: p.x, y: p.v }));
+  graficoCotacaoInstance.data.datasets[6].data = bb.lower.map(p => ({ x: p.x, y: p.v }));
+
   graficoCotacaoInstance.update();
+
+  if (graficoRSIInstance) {
+    graficoRSIInstance.data.labels = rsi.map(p => p.x);
+    graficoRSIInstance.data.datasets[0].data = rsi.map(p => ({ x: p.x, y: p.v }));
+    graficoRSIInstance.options.scales.x.time.unit = unit;
+    graficoRSIInstance.update();
+  }
 }
 
 function calcularOHLC(ativo, resolucaoMin) {
@@ -710,4 +769,74 @@ function exportarCotacoesXLSX() {
   const ws = XLSX.utils.json_to_sheet(registros);
   XLSX.utils.book_append_sheet(wb, ws, `${ativoGraficoAtual}_${resolucaoMinutosAtual}m`);
   XLSX.writeFile(wb, `cotacao_${ativoGraficoAtual}_${resolucaoMinutosAtual}m_${formatarDataArquivo(new Date())}.xlsx`);
+}
+
+function calcularSMA(series, period) {
+  const out = [];
+  let sum = 0;
+  for (let i = 0; i < series.length; i++) {
+    sum += series[i].v;
+    if (i >= period) sum -= series[i - period].v;
+    if (i >= period - 1) out.push({ x: series[i].x, v: sum / period });
+  }
+  return out;
+}
+
+function calcularEMA(series, period) {
+  const out = [];
+  if (series.length === 0) return out;
+  const k = 2 / (period + 1);
+  let emaPrev = series[0].v;
+  out.push({ x: series[0].x, v: emaPrev });
+  for (let i = 1; i < series.length; i++) {
+    const ema = series[i].v * k + emaPrev * (1 - k);
+    emaPrev = ema;
+    out.push({ x: series[i].x, v: ema });
+  }
+  return out;
+}
+
+function calcularDesvioPadrao(janela) {
+  if (janela.length === 0) return 0;
+  const media = janela.reduce((a, b) => a + b, 0) / janela.length;
+  const variancia = janela.reduce((acc, v) => acc + Math.pow(v - media, 2), 0) / janela.length;
+  return Math.sqrt(variancia);
+}
+
+function calcularBollinger(series, period, mult) {
+  const middle = calcularSMA(series, period);
+  const upper = [];
+  const lower = [];
+  for (let i = period - 1; i < series.length; i++) {
+    const janela = series.slice(i - period + 1, i + 1).map(p => p.v);
+    const sd = calcularDesvioPadrao(janela);
+    const m = middle[i - (period - 1)].v;
+    upper.push({ x: series[i].x, v: m + mult * sd });
+    lower.push({ x: series[i].x, v: m - mult * sd });
+  }
+  return { upper, middle, lower };
+}
+
+function calcularRSI(series, period) {
+  const out = [];
+  if (series.length < period + 1) return out;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const delta = series[i].v - series[i - 1].v;
+    if (delta >= 0) gains += delta; else losses -= delta;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  const firstRs = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
+  out.push({ x: series[period].x, v: firstRs });
+  for (let i = period + 1; i < series.length; i++) {
+    const delta = series[i].v - series[i - 1].v;
+    const gain = delta > 0 ? delta : 0;
+    const loss = delta < 0 ? -delta : 0;
+    avgGain = ((avgGain * (period - 1)) + gain) / period;
+    avgLoss = ((avgLoss * (period - 1)) + loss) / period;
+    const rs = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
+    out.push({ x: series[i].x, v: rs });
+  }
+  return out;
 }
