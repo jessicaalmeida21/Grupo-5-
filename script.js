@@ -95,8 +95,15 @@ function toggleSenha(idCampo, elemento) {
 // Função de alterar layout (modo escuro)
 function alterarLayout() {
   const layout = document.getElementById('layout').value;
+  aplicarLayout(layout);
+  try { localStorage.setItem('layoutPreferido', layout); } catch (e) {}
+}
+
+function aplicarLayout(layout) {
   if (layout === "dark") {
     document.body.classList.add("dark-mode");
+    document.body.style.backgroundColor = '';
+    document.body.style.color = '';
   } else {
     document.body.classList.remove("dark-mode");
     if (layout === "light") {
@@ -108,6 +115,16 @@ function alterarLayout() {
     }
   }
 }
+
+// Aplica o layout salvo (ou dark por padrão) ao carregar a página
+try {
+  document.addEventListener('DOMContentLoaded', function() {
+    var preferido = localStorage.getItem('layoutPreferido') || 'dark';
+    var select = document.getElementById('layout');
+    if (select) { select.value = preferido; }
+    aplicarLayout(preferido);
+  });
+} catch (e) {}
 
 // Função para configurar alertas
 function configurarAlertas() {
