@@ -296,8 +296,6 @@
 	function seedHistoricoInicial(){
 		const now = Date.now();
 		for (let ativo in ativosB3){
-			if(!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
-			if(historicoCotacoes[ativo].length >= 2) continue;
 			let price = ativosB3[ativo];
 			const stepMs = 30 * 1000; // 30s
 			const points = 180; // 90 min de histórico
@@ -308,7 +306,7 @@
 				const ts = now - (points-1-i)*stepMs;
 				arr.push({ ts, preco: parseFloat(price.toFixed(2)) });
 			}
-			historicoCotacoes[ativo].push(...arr);
+			historicoCotacoes[ativo] = arr; // sobrescreve para garantir dados
 		}
 	}
 
@@ -323,8 +321,8 @@
 		simpleCanvasCtx = canvas.getContext('2d');
 		ajustarCanvas();
 		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
-		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		seedHistoricoInicial();
+		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 		atualizarGraficoCotacao();
 	}
 
