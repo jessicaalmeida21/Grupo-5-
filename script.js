@@ -400,7 +400,7 @@ function inicializarGraficoCotacao() {
       parsing: false,
       plugins: { legend: { display: true } },
       scales: {
-        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute', parser: 'x' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
         y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       }
     }
