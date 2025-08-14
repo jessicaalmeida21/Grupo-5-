@@ -365,9 +365,14 @@ function inicializarGraficoCotacao() {
   const baseDataset = fin ? {
     label: 'Candles',
     data: [],
-    color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
-    borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-    wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+    // cores padrão do financial (v3)
+    upColor: 'rgba(76, 175, 80, 0.7)',
+    downColor: 'rgba(229, 57, 53, 0.7)',
+    borderUpColor: 'rgba(76, 175, 80, 1)',
+    borderDownColor: 'rgba(229, 57, 53, 1)',
+    wickUpColor: 'rgba(76, 175, 80, 1)',
+    wickDownColor: 'rgba(229, 57, 53, 1)',
+    borderColor: 'rgba(158, 158, 158, 1)',
     borderWidth: 1
   } : {
     label: 'Preço (R$)',
@@ -375,12 +380,12 @@ function inicializarGraficoCotacao() {
     borderColor: 'rgba(76,175,80,1)',
     backgroundColor: 'rgba(76,175,80,0.2)',
     pointRadius: 0,
-    tension: 0.15,
-    parsing: false
+    tension: 0.15
   };
   graficoCotacaoInstance = new Chart(ctx, {
     type: tipo,
     data: {
+      labels: [],
       datasets: [
         baseDataset,
         { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
@@ -397,7 +402,6 @@ function inicializarGraficoCotacao() {
       normalized: true,
       spanGaps: true,
       animation: false,
-      parsing: false,
       plugins: { legend: { display: true } },
       scales: {
         x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
@@ -536,10 +540,14 @@ function atualizarGraficoCotacao() {
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
 
   if (fin) {
+    graficoCotacaoInstance.data.labels = candles.map(c => c.x);
     graficoCotacaoInstance.data.datasets[0].data = candles;
   } else {
-    // fallback para linha: usar fechamento
-    graficoCotacaoInstance.data.datasets[0].data = candles.map(c => ({ x: c.x, y: c.c }));
+    // fallback para linha: usar fechamento com labels
+    const times = candles.map(c => c.x);
+    const closes = candles.map(c => c.c);
+    graficoCotacaoInstance.data.labels = times;
+    graficoCotacaoInstance.data.datasets[0].data = closes;
   }
 
   // Fechamentos e indicadores
