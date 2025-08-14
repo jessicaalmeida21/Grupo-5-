@@ -257,6 +257,14 @@
 			const x = toX(i);
 			ctx.fillText(labels[i], x, h - padY + 16);
 		}
+
+		// Linha de fechamento sobreposta
+		ctx.strokeStyle = isDark ? 'rgba(59,130,246,0.9)' : 'rgba(37,99,235,0.9)';
+		ctx.lineWidth = 1.5;
+		ctx.beginPath();
+		ctx.moveTo(toX(0), toY(candles[0].c));
+		for(let i=1;i<candles.length;i++) ctx.lineTo(toX(i), toY(candles[i].c));
+		ctx.stroke();
 	}
 
 	function agruparOHLC(ativo, stepMin){
