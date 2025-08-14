@@ -354,19 +354,29 @@ function inicializarGraficoCotacao() {
   if (graficoCotacaoInstance) {
     graficoCotacaoInstance.destroy();
   }
+  const fin = window['chartjs-chart-financial'];
+  const tipo = fin ? 'candlestick' : 'line';
+  const baseDataset = fin ? {
+    label: 'Candles',
+    data: [],
+    color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
+    borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+    wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+    borderWidth: 1
+  } : {
+    label: 'Preço (R$)',
+    data: [],
+    borderColor: 'rgba(76,175,80,1)',
+    backgroundColor: 'rgba(76,175,80,0.2)',
+    pointRadius: 0,
+    tension: 0.15
+  };
   graficoCotacaoInstance = new Chart(ctx, {
-    type: 'candlestick',
+    type: tipo,
     data: {
       datasets: [
-        {
-          label: 'Candles',
-          data: [],
-          color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
-          borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-          wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-          borderWidth: 1
-        },
-        // Overlays de indicadores (linhas)
+        baseDataset,
+        // Overlays (se line, os overlays serão reusados como linhas também)
         { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
         { label: 'EMA 21', type: 'line', data: [], borderColor: 'rgba(56, 142, 60, 1)', backgroundColor: 'rgba(56, 142, 60, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
         { label: 'SMA 50', type: 'line', data: [], borderColor: 'rgba(67, 160, 71, 1)', backgroundColor: 'rgba(67, 160, 71, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: true, yAxisID: 'y' },
@@ -511,14 +521,20 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
+  const fin = window['chartjs-chart-financial'];
   const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
-  graficoCotacaoInstance.data.datasets[0].data = candles;
   const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
 
-  // Fechamentos
+  if (fin) {
+    graficoCotacaoInstance.data.datasets[0].data = candles;
+  } else {
+    // fallback para linha: usar fechamento
+    graficoCotacaoInstance.data.datasets[0].data = candles.map(c => ({ x: c.x, y: c.c }));
+  }
+
+  // Fechamentos e indicadores
   const closes = candles.map(c => ({ x: c.x, v: c.c }));
-  // Indicadores
   const ema9 = calcularEMA(closes, 9);
   const ema21 = calcularEMA(closes, 21);
   const sma50 = calcularSMA(closes, 50);
