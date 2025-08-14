@@ -284,6 +284,25 @@
 		if(ratio !== 1){ simpleCanvasCtx.scale(ratio, ratio); }
 	}
 
+	function seedHistoricoInicial(){
+		const now = Date.now();
+		for (let ativo in ativosB3){
+			if(!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
+			if(historicoCotacoes[ativo].length >= 2) continue;
+			let price = ativosB3[ativo];
+			const stepMs = 30 * 1000; // 30s
+			const points = 180; // 90 min de histórico
+			const arr = [];
+			for(let i=points-1;i>=0;i--){
+				price += (Math.random()-0.5) * 0.1; // pequena variação
+				if(price < 0.01) price = 0.01;
+				const ts = now - (points-1-i)*stepMs;
+				arr.push({ ts, preco: parseFloat(price.toFixed(2)) });
+			}
+			historicoCotacoes[ativo].push(...arr);
+		}
+	}
+
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
@@ -296,9 +315,7 @@
 		ajustarCanvas();
 		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
-		// pré-popula histórico com 30 pontos para formar velas
-		for(let i=0;i<30;i++){ registrarHistoricoCotacao(); }
-		setTimeout(()=>{ registrarHistoricoCotacao(); atualizarGraficoCotacao(); }, 100);
+		seedHistoricoInicial();
 		atualizarGraficoCotacao();
 	}
 
