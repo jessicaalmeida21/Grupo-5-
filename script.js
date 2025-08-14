@@ -160,23 +160,24 @@ function fecharAnalise() {
 
 // Função para criar gráfico usando Chart.js
 let graficoInstance = null;
-function criarGraficoAnalise() {
-  const ctx = document.getElementById("graficoAnalise").getContext("2d");
-  
-  // Organizar dados para gráfico: quantidade operada por ativo
+
+function obterDadosGraficoAnalise() {
   const dadosAtivos = {};
   extrato.forEach(op => {
     if (!dadosAtivos[op.ativo]) dadosAtivos[op.ativo] = 0;
     dadosAtivos[op.ativo] += op.qtd;
   });
-  
-  const labels = Object.keys(dadosAtivos);
-  const data = Object.values(dadosAtivos);
-  
+  return { labels: Object.keys(dadosAtivos), data: Object.values(dadosAtivos) };
+}
+
+function criarGraficoAnalise() {
+  const ctx = document.getElementById("graficoAnalise").getContext("2d");
+  const { labels, data } = obterDadosGraficoAnalise();
+
   if(graficoInstance) {
     graficoInstance.destroy();
   }
-  
+
   graficoInstance = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -194,6 +195,14 @@ function criarGraficoAnalise() {
       }
     }
   });
+}
+
+function atualizarGraficoAnalise() {
+  if (!graficoInstance) return;
+  const { labels, data } = obterDadosGraficoAnalise();
+  graficoInstance.data.labels = labels;
+  graficoInstance.data.datasets[0].data = data;
+  graficoInstance.update();
 }
 
 // Funções de operações de compra e venda
@@ -319,6 +328,7 @@ function executarOperacao() {
   atualizarOrdens();
   atualizarCarteira();
   atualizarExtrato();
+  atualizarGraficoAnalise();
   document.getElementById("mensagem").innerText = "Ordem enviada.";
 }
 
@@ -371,6 +381,7 @@ setInterval(() => {
   atualizarOrdens();
   atualizarCarteira();
   atualizarExtrato();
+  atualizarGraficoAnalise();
 }, 10000);
 
 // Função para alterar senha
