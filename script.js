@@ -333,6 +333,12 @@ function inicializarGraficoCotacao() {
   registrarPluginFinanceiro();
   semearHistoricoInicial(60, 10);
 
+  // Fallback de ativo selecionado
+  if (!ativoGraficoAtual) {
+    const keys = Object.keys(ativosB3);
+    if (keys.length > 0) ativoGraficoAtual = keys[0];
+  }
+
   // Listeners de UI
   const selectAtivo = document.getElementById('ativoGrafico');
   const selectRes = document.getElementById('resolucaoGrafico');
@@ -369,14 +375,14 @@ function inicializarGraficoCotacao() {
     borderColor: 'rgba(76,175,80,1)',
     backgroundColor: 'rgba(76,175,80,0.2)',
     pointRadius: 0,
-    tension: 0.15
+    tension: 0.15,
+    parsing: false
   };
   graficoCotacaoInstance = new Chart(ctx, {
     type: tipo,
     data: {
       datasets: [
         baseDataset,
-        // Overlays (se line, os overlays serão reusados como linhas também)
         { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
         { label: 'EMA 21', type: 'line', data: [], borderColor: 'rgba(56, 142, 60, 1)', backgroundColor: 'rgba(56, 142, 60, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
         { label: 'SMA 50', type: 'line', data: [], borderColor: 'rgba(67, 160, 71, 1)', backgroundColor: 'rgba(67, 160, 71, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: true, yAxisID: 'y' },
@@ -387,11 +393,14 @@ function inicializarGraficoCotacao() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
+      normalized: true,
+      spanGaps: true,
       animation: false,
       parsing: false,
       plugins: { legend: { display: true } },
       scales: {
-        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute', parser: 'x' }, grid: { color: 'rgba(0,0,0,0.06)' } },
         y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       }
     }
@@ -612,7 +621,7 @@ function calcularOHLC(ativo, resolucaoMin) {
       if (it.preco < low) low = it.preco;
       vol += it.vol || 0;
     }
-    return { x: ts, o: open, h: high, l: low, c: close, v: vol };
+    return { x: new Date(ts), o: open, h: high, l: low, c: close, v: vol };
   });
   return candles;
 }
