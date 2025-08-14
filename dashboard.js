@@ -177,7 +177,6 @@
 		const w = canvas.clientWidth || canvas.width;
 		const h = canvas.clientHeight || canvas.height;
 		ctx.clearRect(0,0,w,h);
-		if(!candles.length) return;
 
 		const isDark = document.body.classList.contains('dark-mode');
 		const textColor = isDark ? '#e5e7eb' : '#374151';
@@ -190,18 +189,28 @@
 		const plotW = Math.max(1, w - padX*2);
 		const plotH = Math.max(1, h - padY*2);
 
+		// Eixos X e Y e moldura da área
+		ctx.strokeStyle = axisColor;
+		ctx.lineWidth = 1;
+		ctx.beginPath(); ctx.moveTo(padX, padY); ctx.lineTo(padX, h - padY); ctx.stroke(); // Y
+		ctx.beginPath(); ctx.moveTo(padX, h - padY); ctx.lineTo(w - padX, h - padY); ctx.stroke(); // X
+		ctx.strokeStyle = gridColor; ctx.strokeRect(padX, padY, plotW, plotH);
+
+		if(!candles || !candles.length){
+			ctx.fillStyle = textColor;
+			ctx.font = '13px Inter, Arial, sans-serif';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText('Sem dados para exibir', padX + plotW/2, padY + plotH/2);
+			return;
+		}
+
 		let minP = Infinity, maxP = -Infinity;
 		for(const c of candles){ minP = Math.min(minP, c.l); maxP = Math.max(maxP, c.h);} 
 		if(!isFinite(minP) || !isFinite(maxP)) return;
 		const range = Math.max(1e-6, maxP - minP);
 		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
 		const toY = (v)=> padY + (maxP - v) / range * plotH;
-
-		// Eixos X e Y
-		ctx.strokeStyle = axisColor;
-		ctx.lineWidth = 1;
-		ctx.beginPath(); ctx.moveTo(padX, padY); ctx.lineTo(padX, h - padY); ctx.stroke(); // Y
-		ctx.beginPath(); ctx.moveTo(padX, h - padY); ctx.lineTo(w - padX, h - padY); ctx.stroke(); // X
 
 		// gridlines horizontais + rótulos de preço
 		ctx.strokeStyle = gridColor;
