@@ -10,7 +10,6 @@
 
 	// Real-time chart state
 	let graficoCotacaoInstance = null;
-	let apexChart = null;
 	let ativoGraficoAtual = null;
 	let resolucaoMinutosAtual = 1;
 	const historicoCotacoes = {};
@@ -326,7 +325,6 @@
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
-		const apexEl = document.getElementById('graficoApex');
 		// Garante dimensões visíveis
 		if (!canvas.style.height) canvas.style.height = '260px';
 		if (!canvas.style.width) canvas.style.width = '100%';
@@ -335,25 +333,8 @@
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
-		// Preferir ApexCharts (candlestick) se disponível; senão Chart.js; senão Canvas2D
-		if (window.ApexCharts && apexEl){
-			try { if (graficoCotacaoInstance) { graficoCotacaoInstance.destroy(); graficoCotacaoInstance = null; } } catch(e){}
-			canvas.style.display = 'none';
-			apexEl.style.display = '';
-			const isDark = document.body.classList.contains('dark-mode');
-			apexChart = new ApexCharts(apexEl, {
-				chart: { type: 'candlestick', animations: { enabled: false }, toolbar: { show: true }, background: 'transparent', height: '100%' },
-				theme: { mode: isDark ? 'dark' : 'light' },
-				series: [{ name: 'Preço', data: [] }],
-				xaxis: { type: 'category', labels: { rotate: 0 } },
-				yaxis: { tooltip: { enabled: true } },
-				grid: { borderColor: isDark ? '#374151' : '#e5e7eb' },
-				plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
-				tooltip: { enabled: true }
-			});
-			apexChart.render();
-			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
-		} else if (window.Chart){
+		// Preferir Chart.js; fallback Canvas2D (removido ApexCharts para preservar compatibilidade)
+		if (window.Chart){
 			const ctx = canvas.getContext('2d');
 			canvas.style.display = '';
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
@@ -377,7 +358,7 @@
 
 	function atualizarGraficoCotacao(){
 		// Ajustar canvas somente no fallback Canvas2D
-		if (!graficoCotacaoInstance && !apexChart) ajustarCanvas();
+		if (!graficoCotacaoInstance) ajustarCanvas();
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
@@ -387,11 +368,7 @@
 		const candles = Array.isArray(res.candles) ? res.candles : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
-		if (apexChart){
-			const seriesData = lastCandles.map((c,i)=>({ x: lastLabels[i] ?? i, y: [c.o, c.h, c.l, c.c] }));
-			apexChart.updateSeries([{ name: 'Preço', data: seriesData }], true);
-			apexChart.updateOptions({ xaxis: { categories: lastLabels } }, true);
-		} else if (graficoCotacaoInstance){
+		if (graficoCotacaoInstance){
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update();
