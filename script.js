@@ -35,7 +35,7 @@ let graficoVolumeInstance = null;
 let graficoMACDInstance = null;
 let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
-let tipoGraficoAtual = 'candlestick'; // candlestick por padrão
+let tipoGraficoAtual = 'line';
 
 function registrarPluginFinanceiro() {
   try {
@@ -331,16 +331,13 @@ function inicializarGraficoCotacao() {
   const canvas = document.getElementById('graficoCotacao');
   if (!canvas) return;
 
-  registrarPluginFinanceiro();
   semearHistoricoInicial(60, 10);
 
-  // Fallback de ativo selecionado
   if (!ativoGraficoAtual) {
     const keys = Object.keys(ativosB3);
     if (keys.length > 0) ativoGraficoAtual = keys[0];
   }
 
-  // Listeners de UI
   const selectAtivo = document.getElementById('ativoGrafico');
   const selectRes = document.getElementById('resolucaoGrafico');
   if (selectAtivo) {
@@ -361,152 +358,30 @@ function inicializarGraficoCotacao() {
   if (graficoCotacaoInstance) {
     graficoCotacaoInstance.destroy();
   }
-  const fin = window['chartjs-chart-financial'];
-  const tipo = fin ? 'candlestick' : 'line';
-  const baseDataset = fin ? {
-    label: 'Candles',
-    data: [],
-    color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
-    borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-    wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
-    borderWidth: 1
-  } : {
-    label: 'Preço (R$)',
-    data: [],
-    borderColor: 'rgba(76,175,80,1)',
-    backgroundColor: 'rgba(76,175,80,0.2)',
-    pointRadius: 0,
-    tension: 0.15
-  };
   graficoCotacaoInstance = new Chart(ctx, {
-    type: tipo,
+    type: 'line',
     data: {
       labels: [],
-      datasets: [
-        baseDataset,
-        { label: 'EMA 9', type: 'line', data: [], borderColor: 'rgba(0, 200, 83, 1)', backgroundColor: 'rgba(0, 200, 83, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
-        { label: 'EMA 21', type: 'line', data: [], borderColor: 'rgba(56, 142, 60, 1)', backgroundColor: 'rgba(56, 142, 60, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: false, yAxisID: 'y' },
-        { label: 'SMA 50', type: 'line', data: [], borderColor: 'rgba(67, 160, 71, 1)', backgroundColor: 'rgba(67, 160, 71, 0.1)', pointRadius: 0, borderWidth: 1.5, hidden: true, yAxisID: 'y' },
-        { label: 'BB Upper', type: 'line', data: [], borderColor: 'rgba(76, 175, 80, 0.6)', backgroundColor: 'rgba(76, 175, 80, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' },
-        { label: 'BB Middle', type: 'line', data: [], borderColor: 'rgba(120, 144, 156, 0.7)', backgroundColor: 'rgba(120, 144, 156, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' },
-        { label: 'BB Lower', type: 'line', data: [], borderColor: 'rgba(76, 175, 80, 0.6)', backgroundColor: 'rgba(76, 175, 80, 0.05)', pointRadius: 0, borderWidth: 1, hidden: true, yAxisID: 'y' }
-      ]
+      datasets: [{
+        label: 'Preço (R$)',
+        data: [],
+        borderColor: 'rgba(76,175,80,1)',
+        backgroundColor: 'rgba(76,175,80,0.15)',
+        pointRadius: 0,
+        tension: 0.15,
+        fill: true
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      normalized: true,
-      spanGaps: true,
       animation: false,
-      plugins: { legend: { display: true } },
       scales: {
-        x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
-      }
+        x: { ticks: { maxRotation: 0 } },
+        y: { beginAtZero: false }
+      },
+      plugins: { legend: { display: true } }
     }
-  });
-
-  // Chart Volume
-  const volCanvas = document.getElementById('graficoVolume');
-  if (graficoVolumeInstance) graficoVolumeInstance.destroy();
-  if (volCanvas) {
-    graficoVolumeInstance = new Chart(volCanvas.getContext('2d'), {
-      type: 'bar',
-      data: { labels: [], datasets: [{ label: 'Volume', data: [], backgroundColor: [], borderWidth: 0 }] },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.05)' } },
-          y: { beginAtZero: true, ticks: { maxTicksLimit: 3 }, grid: { color: 'rgba(0,0,0,0.05)' } }
-        },
-        plugins: { legend: { display: false } }
-      }
-    });
-  }
-
-  // Chart RSI secundário
-  const rsiCanvas = document.getElementById('graficoRSI');
-  if (graficoRSIInstance) graficoRSIInstance.destroy();
-  if (rsiCanvas) {
-    graficoRSIInstance = new Chart(rsiCanvas.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'RSI 14', data: [], borderColor: 'rgba(41, 182, 246, 1)', backgroundColor: 'rgba(41, 182, 246, 0.1)', pointRadius: 0, borderWidth: 1 },
-          { label: 'RSI 70', data: [], borderColor: 'rgba(244, 67, 54, 0.8)', borderDash: [6, 4], pointRadius: 0, borderWidth: 1, fill: false },
-          { label: 'RSI 30', data: [], borderColor: 'rgba(76, 175, 80, 0.8)', borderDash: [6, 4], pointRadius: 0, borderWidth: 1, fill: false }
-        ]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: { display: true, adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' }, grid: { color: 'rgba(0,0,0,0.06)' } },
-          y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: { color: 'rgba(0,0,0,0.06)' } }
-        },
-        plugins: { legend: { display: true } }
-      }
-    });
-  }
-
-  // Chart MACD
-  const macdCanvas = document.getElementById('graficoMACD');
-  if (graficoMACDInstance) graficoMACDInstance.destroy();
-  if (macdCanvas) {
-    graficoMACDInstance = new Chart(macdCanvas.getContext('2d'), {
-      data: {
-        labels: [],
-        datasets: [
-          { type: 'bar', label: 'Hist', data: [], backgroundColor: 'rgba(120, 144, 156, 0.5)', borderWidth: 0 },
-          { type: 'line', label: 'MACD', data: [], borderColor: 'rgba(3, 169, 244, 1)', backgroundColor: 'rgba(3, 169, 244, 0.1)', pointRadius: 0, borderWidth: 1.5 },
-          { type: 'line', label: 'Signal', data: [], borderColor: 'rgba(255, 152, 0, 1)', backgroundColor: 'rgba(255, 152, 0, 0.1)', pointRadius: 0, borderWidth: 1.5 }
-        ]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: { adapters: { date: { zone: 'utc' } }, type: 'time', time: { unit: 'minute' } },
-          y: { ticks: { maxTicksLimit: 5 } }
-        },
-        plugins: { legend: { display: true } }
-      }
-    });
-  }
-
-  // Checkboxes dos indicadores
-  const cbEma9 = document.getElementById('indEma9');
-  const cbEma21 = document.getElementById('indEma21');
-  const cbSma50 = document.getElementById('indSma50');
-  const cbBb = document.getElementById('indBb');
-  const cbRsi = document.getElementById('indRsi');
-  const cbVol = document.getElementById('indVolume');
-  const cbMacd = document.getElementById('indMacd');
-  if (cbEma9) cbEma9.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(1).hidden = !cbEma9.checked; graficoCotacaoInstance.update(); });
-  if (cbEma21) cbEma21.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(2).hidden = !cbEma21.checked; graficoCotacaoInstance.update(); });
-  if (cbSma50) cbSma50.addEventListener('change', () => { graficoCotacaoInstance.getDatasetMeta(3).hidden = !cbSma50.checked; graficoCotacaoInstance.update(); });
-  if (cbBb) cbBb.addEventListener('change', () => {
-    graficoCotacaoInstance.getDatasetMeta(4).hidden = !cbBb.checked;
-    graficoCotacaoInstance.getDatasetMeta(5).hidden = !cbBb.checked;
-    graficoCotacaoInstance.getDatasetMeta(6).hidden = !cbBb.checked;
-    graficoCotacaoInstance.update();
-  });
-  if (cbRsi) cbRsi.addEventListener('change', () => {
-    const el = document.getElementById('graficoRSI');
-    if (!el) return;
-    if (cbRsi.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
-  });
-  if (cbVol) cbVol.addEventListener('change', () => {
-    const el = document.getElementById('graficoVolume');
-    if (!el) return;
-    if (cbVol.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
-  });
-  if (cbMacd) cbMacd.addEventListener('change', () => {
-    const el = document.getElementById('graficoMACD');
-    if (!el) return;
-    if (cbMacd.checked) el.classList.remove('hidden'); else el.classList.add('hidden');
   });
 
   registrarHistoricoCotacao();
@@ -530,104 +405,30 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const fin = window['chartjs-chart-financial'];
-  const candles = calcularOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
-  const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
-  graficoCotacaoInstance.options.scales.x.time.unit = unit;
-
-  if (fin) {
-    graficoCotacaoInstance.data.labels = candles.map(c => c.x);
-    graficoCotacaoInstance.data.datasets[0].data = candles;
-  } else {
-    // fallback para linha: usar fechamento com labels
-    const times = candles.map(c => c.x);
-    const closes = candles.map(c => c.c);
-    graficoCotacaoInstance.data.labels = times;
-    graficoCotacaoInstance.data.datasets[0].data = closes;
-  }
-
-  // Fechamentos e indicadores
-  const closes = candles.map(c => ({ x: c.x, v: c.c }));
-  const ema9 = calcularEMA(closes, 9);
-  const ema21 = calcularEMA(closes, 21);
-  const sma50 = calcularSMA(closes, 50);
-  const bb = calcularBollinger(closes, 20, 2);
-  const rsi = calcularRSI(closes, 14);
-
-  graficoCotacaoInstance.data.datasets[1].data = ema9.map(p => ({ x: p.x, y: p.v }));
-  graficoCotacaoInstance.data.datasets[2].data = ema21.map(p => ({ x: p.x, y: p.v }));
-  graficoCotacaoInstance.data.datasets[3].data = sma50.map(p => ({ x: p.x, y: p.v }));
-  graficoCotacaoInstance.data.datasets[4].data = bb.upper.map(p => ({ x: p.x, y: p.v }));
-  graficoCotacaoInstance.data.datasets[5].data = bb.middle.map(p => ({ x: p.x, y: p.v }));
-  graficoCotacaoInstance.data.datasets[6].data = bb.lower.map(p => ({ x: p.x, y: p.v }));
-
+  const series = calcularSerieMedia(ativoGraficoAtual, resolucaoMinutosAtual);
+  graficoCotacaoInstance.data.labels = series.map(p => p.lb);
+  graficoCotacaoInstance.data.datasets[0].data = series.map(p => p.v);
   graficoCotacaoInstance.update();
-
-  // Volume
-  if (graficoVolumeInstance) {
-    const volData = candles.map(c => ({ x: c.x, y: c.v || 0 }));
-    const colors = candles.map(c => (c.c >= c.o ? 'rgba(76, 175, 80, 0.6)' : 'rgba(229, 57, 53, 0.6)'));
-    graficoVolumeInstance.data.labels = volData.map(p => p.x);
-    graficoVolumeInstance.data.datasets[0].data = volData.map(p => ({ x: p.x, y: p.y }));
-    graficoVolumeInstance.data.datasets[0].backgroundColor = colors;
-    graficoVolumeInstance.options.scales.x.time.unit = unit;
-    graficoVolumeInstance.update();
-  }
-
-  // RSI
-  if (graficoRSIInstance) {
-    graficoRSIInstance.data.labels = rsi.map(p => p.x);
-    graficoRSIInstance.data.datasets[0].data = rsi.map(p => ({ x: p.x, y: p.v }));
-    // Linhas 70/30
-    const rsiLabels = rsi.map(p => p.x);
-    graficoRSIInstance.data.datasets[1].data = rsiLabels.map(x => ({ x, y: 70 }));
-    graficoRSIInstance.data.datasets[2].data = rsiLabels.map(x => ({ x, y: 30 }));
-    graficoRSIInstance.options.scales.x.time.unit = unit;
-    graficoRSIInstance.update();
-  }
-
-  // MACD
-  if (graficoMACDInstance) {
-    const macd = calcularMACD(closes, 12, 26, 9);
-    graficoMACDInstance.data.labels = macd.map(p => p.x);
-    graficoMACDInstance.data.datasets[0].data = macd.map(p => ({ x: p.x, y: p.hist }));
-    graficoMACDInstance.data.datasets[1].data = macd.map(p => ({ x: p.x, y: p.macd }));
-    graficoMACDInstance.data.datasets[2].data = macd.map(p => ({ x: p.x, y: p.signal }));
-    graficoMACDInstance.options.scales.x.time.unit = unit;
-    graficoMACDInstance.options.scales.x.grid = { color: 'rgba(0,0,0,0.06)' };
-    graficoMACDInstance.options.scales.y.grid = { color: 'rgba(0,0,0,0.06)' };
-    graficoMACDInstance.update();
-  }
 }
 
-function calcularOHLC(ativo, resolucaoMin) {
+function calcularSerieMedia(ativo, resolMin) {
   const pontos = historicoCotacoes[ativo] || [];
   if (pontos.length === 0) return [];
-  const bucketMs = resolucaoMin * 60 * 1000;
+  const bucketMs = resolMin * 60 * 1000;
   const buckets = new Map();
   for (const p of pontos) {
-    const chave = Math.floor(p.ts / bucketMs) * bucketMs;
-    if (!buckets.has(chave)) {
-      buckets.set(chave, []);
-    }
-    buckets.get(chave).push(p);
+    const key = Math.floor(p.ts / bucketMs) * bucketMs;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p.preco);
   }
-  const chaves = Array.from(buckets.keys()).sort((a, b) => a - b);
-  const candles = chaves.map(ts => {
-    const arr = buckets.get(ts).sort((a, b) => a.ts - b.ts);
-    const open = arr[0].preco;
-    const close = arr[arr.length - 1].preco;
-    let high = -Infinity;
-    let low = Infinity;
-    let vol = 0;
-    for (const it of arr) {
-      if (it.preco > high) high = it.preco;
-      if (it.preco < low) low = it.preco;
-      vol += it.vol || 0;
-    }
-    return { x: new Date(ts), o: open, h: high, l: low, c: close, v: vol };
+  const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
+  return keys.map(ts => {
+    const arr = buckets.get(ts);
+    const avg = arr.reduce((a,b)=>a+b,0)/arr.length;
+    const d = new Date(ts);
+    const lb = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return { ts, v: parseFloat(avg.toFixed(2)), lb };
   });
-  return candles;
 }
 
 function formatarHoraMinuto(d) {
