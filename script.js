@@ -359,39 +359,66 @@ function inicializarGraficoCotacao() {
     graficoCotacaoInstance.destroy();
   }
 
-  const areaGradient = (context) => {
-    const chart = context.chart;
-    const { ctx: gctx, chartArea } = chart;
-    if (!chartArea) return 'rgba(76,175,80,0.15)';
-    const gradient = gctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, 'rgba(76,175,80,0.35)');
-    gradient.addColorStop(1, 'rgba(76,175,80,0)');
-    return gradient;
-  };
+  // garante que os controladores financeiros estejam registrados
+  registrarPluginFinanceiro();
 
   graficoCotacaoInstance = new Chart(ctx, {
-    type: 'line',
+    type: 'candlestick',
     data: {
-      datasets: [{
-        label: 'Preço (R$)',
-        data: [],
-        borderColor: 'rgba(76,175,80,1)',
-        backgroundColor: areaGradient,
-        pointRadius: 0,
-        tension: 0.2,
-        fill: true,
-        borderWidth: 2
-      }]
+      datasets: [
+        {
+          label: 'Candlestick',
+          data: [],
+          yAxisID: 'y',
+        },
+        {
+          type: 'bar',
+          label: 'Volume',
+          data: [],
+          yAxisID: 'yVol',
+          borderWidth: 0,
+          barPercentage: 0.8,
+          categoryPercentage: 1.0,
+          backgroundColor: (context) => (context.raw && context.raw.color) ? context.raw.color : 'rgba(102,187,106,0.4)'
+        }
+      ]
     },
-          options: {
+    options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      interaction: { mode: 'index', intersect: false },
       scales: {
         x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
+        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } },
+        yVol: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: (v) => Math.round(v/1000) + 'k' } }
       },
-      plugins: { legend: { display: true } }
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              if (context.dataset.type === 'bar' || context.dataset.yAxisID === 'yVol') {
+                const v = context.raw && (context.raw.y ?? context.raw.v);
+                return `Volume: ${typeof v === 'number' ? v.toLocaleString('pt-BR') : '-'}`;
+              }
+              const p = context.raw || {};
+              const fmt = (n) => typeof n === 'number' ? n.toFixed(2) : '-';
+              return [
+                `Abertura: ${fmt(p.o)}`,
+                `Máxima: ${fmt(p.h)}`,
+                `Mínima: ${fmt(p.l)}`,
+                `Fechamento: ${fmt(p.c)}`
+              ];
+            },
+            title: function(items) {
+              if (!items || items.length === 0) return '';
+              const x = items[0].raw && items[0].raw.x ? items[0].raw.x : items[0].parsed.x;
+              try { return new Date(x).toLocaleString('pt-BR'); } catch(e) { return ''; }
+            }
+          }
+        }
+      }
     }
   });
 
@@ -416,10 +443,16 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const series = calcularSerieLinha(ativoGraficoAtual, resolucaoMinutosAtual);
+  const ohlc = calcularSerieOHLC(ativoGraficoAtual, resolucaoMinutosAtual);
   const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
-  graficoCotacaoInstance.data.datasets[0].data = series;
+  graficoCotacaoInstance.data.datasets[0].data = ohlc;
+  // volume com coloração verde/vermelho dependendo do candle
+  const volData = ohlc.map(d => ({ x: d.x, y: d.v, color: d.c >= d.o ? 'rgba(102,187,106,0.5)' : 'rgba(239,83,80,0.5)' }));
+  graficoCotacaoInstance.data.datasets[1].data = volData;
+  // ajustar sugestão de escala de volume
+  const maxV = volData.reduce((m, p) => Math.max(m, p.y || 0), 0);
+  if (maxV > 0) graficoCotacaoInstance.options.scales.yVol.suggestedMax = maxV * 1.4;
   graficoCotacaoInstance.update();
 }
 
@@ -438,6 +471,32 @@ function calcularSerieLinha(ativo, resolMin) {
     const arr = buckets.get(ts).sort((a,b)=>a.ts-b.ts);
     const close = arr[arr.length - 1].preco;
     return { x: new Date(ts), y: close };
+  });
+}
+
+// Agregação OHLC + Volume por bucket de tempo
+function calcularSerieOHLC(ativo, resolMin) {
+  const pontos = historicoCotacoes[ativo] || [];
+  if (pontos.length === 0) return [];
+  const bucketMs = resolMin * 60 * 1000;
+  const buckets = new Map();
+  for (const p of pontos) {
+    const key = Math.floor(p.ts / bucketMs) * bucketMs;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p);
+  }
+  const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
+  return keys.map(ts => {
+    const arr = buckets.get(ts).sort((a,b)=>a.ts-b.ts);
+    const open = arr[0].preco;
+    const close = arr[arr.length - 1].preco;
+    let high = -Infinity, low = Infinity, vol = 0;
+    for (const tick of arr) {
+      if (tick.preco > high) high = tick.preco;
+      if (tick.preco < low) low = tick.preco;
+      vol += tick.vol || 0;
+    }
+    return { x: new Date(ts), o: open, h: high, l: low, c: close, v: vol };
   });
 }
 
