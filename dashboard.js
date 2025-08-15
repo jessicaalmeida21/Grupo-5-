@@ -10,6 +10,7 @@
 
 	// Real-time chart state
 	let graficoCotacaoInstance = null;
+	let apexChart = null;
 	let ativoGraficoAtual = null;
 	let resolucaoMinutosAtual = 1;
 	const historicoCotacoes = {};
@@ -78,6 +79,10 @@
 			if (window.ChartAnnotation) {
 				Chart.register(window.ChartAnnotation);
 			}
+			// Garante registro de escalas/controladores do Chart.js 3/4 quando usando CDN
+			if (window.Chart && Chart.register) {
+				try { Chart.register(...Object.values(Chart)); } catch(e) { /* no-op */ }
+			}
 		} catch(e) { /* no-op */ }
 	}
 
@@ -109,7 +114,7 @@
 
 		// Layout preferido
 		try {
-			var preferido = localStorage.getItem('layoutPreferido') || 'dark';
+			var preferido = localStorage.getItem('layoutPreferido') || 'default';
 			var select = document.getElementById('layout');
 			if (select) { select.value = preferido; }
 			aplicarLayout(preferido);
@@ -321,47 +326,449 @@
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
+		const apexEl = document.getElementById('graficoApex');
+		// Garante dimensões visíveis
+		if (!canvas.style.height) canvas.style.height = '260px';
+		if (!canvas.style.width) canvas.style.width = '100%';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
+		// Preferir ApexCharts (candlestick) se disponível; senão Chart.js; senão Canvas2D
+		if (window.ApexCharts && apexEl){
+			try { if (graficoCotacaoInstance) { graficoCotacaoInstance.destroy(); graficoCotacaoInstance = null; } } catch(e){}
+			canvas.style.display = 'none';
+			apexEl.style.display = '';
+			const isDark = document.body.classList.contains('dark-mode');
+			apexChart = new ApexCharts(apexEl, {
+				chart: { type: 'candlestick', animations: { enabled: false }, toolbar: { show: true }, background: 'transparent', height: '100%' },
+				theme: { mode: isDark ? 'dark' : 'light' },
+				series: [{ name: 'Preço', data: [] }],
+				xaxis: { type: 'category', labels: { rotate: 0 } },
+				yaxis: { tooltip: { enabled: true } },
+				grid: { borderColor: isDark ? '#374151' : '#e5e7eb' },
+				plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+				tooltip: { enabled: true }
+			});
+			apexChart.render();
+			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
+		} else if (window.Chart){
+			const ctx = canvas.getContext('2d');
+			canvas.style.display = '';
+			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
+			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
+			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
+			simpleCanvasCtx = null;
+			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
+		} else {
+			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
 		simpleCanvasCtx = canvas.getContext('2d');
+			canvas.style.display = '';
 		ajustarCanvas();
 		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 		atualizarGraficoCotacao();
+		// Segunda atualização pós layout para garantir render em containers flex
+		setTimeout(()=>{ atualizarGraficoCotacao(); }, 100);
 	}
 
 	function atualizarGraficoCotacao(){
-		ajustarCanvas();
-		if(!simpleCanvasCtx){ return; }
+		// Ajustar canvas somente no fallback Canvas2D
+		if (!graficoCotacaoInstance && !apexChart) ajustarCanvas();
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
 		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
-		const { labels, candles } = agruparOHLC(ativoGraficoAtual, step);
-		desenharCandles(labels.slice(-60), candles.slice(-60));
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [] };
+		const labels = Array.isArray(res.labels) ? res.labels : [];
+		const candles = Array.isArray(res.candles) ? res.candles : [];
+		const lastLabels = labels.length ? labels.slice(-120) : [];
+		const lastCandles = candles.length ? candles.slice(-120) : [];
+		if (apexChart){
+			const seriesData = lastCandles.map((c,i)=>({ x: lastLabels[i] ?? i, y: [c.o, c.h, c.l, c.c] }));
+			apexChart.updateSeries([{ name: 'Preço', data: seriesData }], true);
+			apexChart.updateOptions({ xaxis: { categories: lastLabels } }, true);
+		} else if (graficoCotacaoInstance){
+			graficoCotacaoInstance.data.labels = lastLabels;
+			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
+			graficoCotacaoInstance.update();
+		} else if (simpleCanvasCtx){
+			desenharCandles(lastLabels.slice(-60), lastCandles.slice(-60));
+		}
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
-	function agruparOHLC(valores, resolucaoMin){
-		let labels=[], ohlc=[], volume=[];
-		const agora = Date.now();
-		const step = resolucaoMin*60*1000;
-		for(let i=0;i<valores.length;i++){
-			const t = agora - (valores.length-i)*step;
-			const open = i>0 ? valores[i-1] : valores[i];
-			const close = valores[i];
-			const high = Math.max(open, close) + Math.random()*0.2;
-			const low = Math.min(open, close) - Math.random()*0.2;
-			labels.push(t);
-			ohlc.push({ t, o:open, h:high, l:low, c:close });
-			volume.push( Math.round(100 + Math.random()*900) );
+// Fecha IIFE principal
+})();
+
+// Ignora o bloco legado abaixo que foi colado inadvertidamente
+if (false) {
+
+
+
+		const padX = 48;
+
+		const padY = 24;
+
+		const plotW = Math.max(1, w - padX*2);
+
+		const plotH = Math.max(1, h - padY*2);
+
+
+
+		// Eixos X e Y e moldura da área
+
+		ctx.strokeStyle = axisColor;
+
+		ctx.lineWidth = 1;
+
+		ctx.beginPath(); ctx.moveTo(padX, padY); ctx.lineTo(padX, h - padY); ctx.stroke(); // Y
+
+		ctx.beginPath(); ctx.moveTo(padX, h - padY); ctx.lineTo(w - padX, h - padY); ctx.stroke(); // X
+
+		ctx.strokeStyle = gridColor; ctx.strokeRect(padX, padY, plotW, plotH);
+
+
+
+		if(!candles || !candles.length){
+
+			ctx.fillStyle = textColor;
+
+			ctx.font = '13px Inter, Arial, sans-serif';
+
+			ctx.textAlign = 'center';
+
+			ctx.textBaseline = 'middle';
+
+			ctx.fillText('Sem dados para exibir', padX + plotW/2, padY + plotH/2);
+
+			return;
+
 		}
-		return { labels, ohlc, volume };
+
+
+
+		let minP = Infinity, maxP = -Infinity;
+
+		for(const c of candles){ minP = Math.min(minP, c.l); maxP = Math.max(maxP, c.h);} 
+
+		if(!isFinite(minP) || !isFinite(maxP)) return;
+
+		const range = Math.max(1e-6, maxP - minP);
+
+		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
+
+		const toY = (v)=> padY + (maxP - v) / range * plotH;
+
+
+
+		// gridlines horizontais + rótulos de preço
+
+		ctx.strokeStyle = gridColor;
+
+		ctx.fillStyle = textColor;
+
+		ctx.font = '12px Inter, Arial, sans-serif';
+
+		ctx.textAlign = 'left';
+
+		ctx.textBaseline = 'middle';
+
+		for(let g=0; g<=4; g++){
+
+			const yVal = maxP - g*(range/4);
+
+			const y = toY(yVal);
+
+			ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w-padX, y); ctx.stroke();
+
+			ctx.fillText(yVal.toFixed(2), 6, y);
+
+		}
+
+
+
+		const candleW = Math.max(6, (plotW / candles.length) * 0.6);
+
+		for(let i=0;i<candles.length;i++){
+
+			const { o,h:hi,l:lo,c } = candles[i];
+
+			const up = c >= o;
+
+			const x = toX(i);
+
+			const yO = toY(o);
+
+			const yC = toY(c);
+
+			const yH = toY(hi);
+
+			const yL = toY(lo);
+
+			const bodyTop = Math.min(yO, yC);
+
+			const bodyH = Math.max(2, Math.abs(yO - yC));
+
+			// wick
+
+			ctx.strokeStyle = wickBase;
+
+			ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+
+			// body
+
+			ctx.fillStyle = up ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)';
+
+			ctx.strokeStyle = up ? '#16a34a' : '#ef4444';
+
+			ctx.lineWidth = 1;
+
+			ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
+
+			ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
+
+		}
+
+
+
+		// rótulos de tempo no eixo X espaçados
+
+		const step = Math.max(1, Math.ceil(candles.length / 6));
+
+		ctx.fillStyle = textColor;
+
+		ctx.textAlign = 'center';
+
+		ctx.textBaseline = 'alphabetic';
+
+		for(let i=0;i<candles.length;i++){
+
+			if (i % step !== 0 && i !== candles.length-1) continue;
+
+			const x = toX(i);
+
+			ctx.fillText(labels[i], x, h - padY + 16);
+
+		}
+
+
+
+		// Linha de fechamento sobreposta
+
+		ctx.strokeStyle = isDark ? 'rgba(59,130,246,0.9)' : 'rgba(37,99,235,0.9)';
+
+		ctx.lineWidth = 1.5;
+
+		ctx.beginPath();
+
+		ctx.moveTo(toX(0), toY(candles[0].c));
+
+		for(let i=1;i<candles.length;i++) ctx.lineTo(toX(i), toY(candles[i].c));
+
+		ctx.stroke();
+
 	}
+
+
+
+	function agruparOHLC(ativo, stepMin){
+
+		const pontos = historicoCotacoes[ativo] || [];
+
+		if(!pontos.length) return { labels: [], candles: [] };
+
+		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
+
+		const map = new Map();
+
+		const step = Math.max(1, parseInt(stepMin, 10) || 1);
+
+		for(const p of ordenados){
+
+			const d = new Date(p.ts);
+
+			const flooredMin = step >= 60 ? 0 : Math.floor(d.getMinutes()/step)*step;
+
+			const hour = d.getHours();
+
+			const keyDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, flooredMin, 0, 0);
+
+			const key = keyDate.getTime();
+
+			const label = step >= 60 ? `${String(hour).padStart(2,'0')}:00` : `${String(hour).padStart(2,'0')}:${String(flooredMin).padStart(2,'0')}`;
+
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label });
+
+			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; }
+
+		}
+
+		const keys = Array.from(map.keys()).sort((a,b)=>a-b);
+
+		const labels = keys.map(k=> map.get(k).label);
+
+		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
+
+		return { labels, candles };
+
+	}
+
+
+
+	function ajustarCanvas(){
+
+		const canvas = document.getElementById('graficoCotacao');
+
+		if(!canvas || !simpleCanvasCtx) return;
+
+		const ratio = window.devicePixelRatio || 1;
+
+		const cssW = canvas.clientWidth || canvas.parentElement?.clientWidth || 600;
+
+		const cssH = canvas.clientHeight || 220;
+
+		canvas.width = Math.floor(cssW * ratio);
+
+		canvas.height = Math.floor(cssH * ratio);
+
+		simpleCanvasCtx.setTransform(1,0,0,1,0,0);
+
+		if(ratio !== 1){ simpleCanvasCtx.scale(ratio, ratio); }
+
+	}
+
+
+
+	function seedHistoricoInicial(){
+
+		const now = Date.now();
+
+		for (let ativo in ativosB3){
+
+			let price = ativosB3[ativo];
+
+			const stepMs = 30 * 1000; // 30s
+
+			const points = 180; // 90 min de histórico
+
+			const arr = [];
+
+			for(let i=points-1;i>=0;i--){
+
+				price += (Math.random()-0.5) * 0.1; // pequena variação
+
+				if(price < 0.01) price = 0.01;
+
+				const ts = now - (points-1-i)*stepMs;
+
+				arr.push({ ts, preco: parseFloat(price.toFixed(2)) });
+
+			}
+
+			historicoCotacoes[ativo] = arr; // sobrescreve para garantir dados
+
+		}
+
+	}
+
+
+
+	function inicializarGraficoCotacao(){
+
+		const canvas = document.getElementById('graficoCotacao');
+
+		if (!canvas) return;
+
+		const selectAtivo = document.getElementById('ativoGrafico');
+
+		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
+
+		const selectRes = document.getElementById('resolucaoGrafico');
+
+		if (selectRes) selectRes.disabled = false;
+
+		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
+
+		simpleCanvasCtx = canvas.getContext('2d');
+
+		ajustarCanvas();
+
+		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+
+		seedHistoricoInicial();
+
+		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
+
+		atualizarGraficoCotacao();
+
+	}
+
+
+
+	function atualizarGraficoCotacao(){
+
+		ajustarCanvas();
+
+		if(!simpleCanvasCtx){ return; }
+
+		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
+
+		if(!ativoGraficoAtual) return;
+
+		const selectRes = document.getElementById('resolucaoGrafico');
+
+		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
+
+		const { labels, candles } = agruparOHLC(ativoGraficoAtual, step);
+
+		desenharCandles(labels.slice(-60), candles.slice(-60));
+
+	}
+
+	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
+
+	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
+
+	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
+
+
+
+	function agruparOHLC(valores, resolucaoMin){
+
+		let labels=[], ohlc=[], volume=[];
+
+		const agora = Date.now();
+
+		const step = resolucaoMin*60*1000;
+
+		for(let i=0;i<valores.length;i++){
+
+			const t = agora - (valores.length-i)*step;
+
+			const open = i>0 ? valores[i-1] : valores[i];
+
+			const close = valores[i];
+
+			const high = Math.max(open, close) + Math.random()*0.2;
+
+			const low = Math.min(open, close) - Math.random()*0.2;
+
+			labels.push(t);
+
+			ohlc.push({ t, o:open, h:high, l:low, c:close });
+
+			volume.push( Math.round(100 + Math.random()*900) );
+
+		}
+
+		return { labels, ohlc, volume };
+
+	}
+
 })();

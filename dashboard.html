@@ -8,6 +8,7 @@
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="style.css" />
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2"></script>
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 <body>
 	<div class="container">
@@ -36,9 +37,9 @@
 		</div>
 
 		<div class="flex">
-			<div style="flex: 1">
-				<h3>Cotação em tempo real</h3>
-				<div>
+			<div class="chart-card compact">
+				<h3 style="font-size:14px;margin:4px 0 6px 0">Cotação em tempo real</h3>
+				<div class="chart-controls">
 					<label for="ativoGrafico">Ativo:</label>
 					<select id="ativoGrafico"></select>
 					<label for="resolucaoGrafico">Resolução:</label>
@@ -51,7 +52,8 @@
 
 
 				</div>
-				<canvas id="graficoCotacao" height="200"></canvas>
+				<div id="graficoApex" class="apex-container"></div>
+				<canvas id="graficoCotacao" style="display:none"></canvas>
 			</div>
 		</div>
 
@@ -134,7 +136,7 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-	<script src="shared.js"></script>
-	<script src="dashboard.js"></script>
+	<script src="shared.js?v=20250815-1"></script>
+	<script src="dashboard.js?v=20250815-2"></script>
 </body>
 </html>
