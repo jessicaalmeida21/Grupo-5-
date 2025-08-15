@@ -359,39 +359,90 @@ function inicializarGraficoCotacao() {
     graficoCotacaoInstance.destroy();
   }
 
-  const areaGradient = (context) => {
-    const chart = context.chart;
-    const { ctx: gctx, chartArea } = chart;
-    if (!chartArea) return 'rgba(76,175,80,0.15)';
-    const gradient = gctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, 'rgba(76,175,80,0.35)');
-    gradient.addColorStop(1, 'rgba(76,175,80,0)');
-    return gradient;
-  };
+  // registra plugin de candlestick/ohlc
+  registrarPluginFinanceiro();
 
   graficoCotacaoInstance = new Chart(ctx, {
-    type: 'line',
+    type: 'candlestick',
     data: {
-      datasets: [{
-        label: 'Preço (R$)',
-        data: [],
-        borderColor: 'rgba(76,175,80,1)',
-        backgroundColor: areaGradient,
-        pointRadius: 0,
-        tension: 0.2,
-        fill: true,
-        borderWidth: 2
-      }]
+      datasets: [
+        {
+          label: 'Preço (R$)',
+          type: 'candlestick',
+          data: [],
+          upColor: '#4caf50',
+          downColor: '#ef5350',
+          borderUpColor: '#4caf50',
+          borderDownColor: '#ef5350',
+          borderColor: '#b0bec5',
+          wickColor: {
+            up: '#4caf50',
+            down: '#ef5350',
+            unchanged: '#b0bec5'
+          }
+        },
+        {
+          label: 'Volume',
+          type: 'bar',
+          data: [],
+          yAxisID: 'yVolume',
+          backgroundColor: [],
+          borderWidth: 0,
+          barPercentage: 0.9,
+          categoryPercentage: 1.0,
+          borderSkipped: false
+        }
+      ]
     },
-          options: {
+    options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      parsing: false,
       scales: {
-        x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
+        x: {
+          type: 'time',
+          time: { unit: 'minute' },
+          adapters: { date: { zone: 'utc' } },
+          ticks: { maxRotation: 0 },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        },
+        yVolume: {
+          position: 'right',
+          beginAtZero: true,
+          grid: { display: false },
+          ticks: { display: false }
+        }
       },
-      plugins: { legend: { display: true } }
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            title: function(items) {
+              if (!items || items.length === 0) return '';
+              const rawX = items[0].raw && items[0].raw.x ? items[0].raw.x : items[0].parsed && items[0].parsed.x ? items[0].parsed.x : null;
+              const d = rawX instanceof Date ? rawX : new Date(rawX || Date.now());
+              return d.toLocaleString('pt-BR');
+            },
+            label: function(ctx) {
+              if (ctx.dataset.type === 'candlestick' && ctx.raw) {
+                const r = ctx.raw;
+                return ` Abertura: ${r.o.toFixed(2)}  Máxima: ${r.h.toFixed(2)}  Mínima: ${r.l.toFixed(2)}  Fechamento: ${r.c.toFixed(2)}`;
+              }
+              if (ctx.dataset.type === 'bar') {
+                return ` Volume: ${ctx.raw.y}`;
+              }
+              return '';
+            }
+          }
+        }
+      }
     }
   });
 
@@ -416,10 +467,14 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const series = calcularSerieLinha(ativoGraficoAtual, resolucaoMinutosAtual);
+  const { candles, volumes, volumeColors } = calcularSerieOHLCVolume(ativoGraficoAtual, resolucaoMinutosAtual);
   const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
   graficoCotacaoInstance.options.scales.x.time.unit = unit;
-  graficoCotacaoInstance.data.datasets[0].data = series;
+  // candles
+  graficoCotacaoInstance.data.datasets[0].data = candles;
+  // volume
+  graficoCotacaoInstance.data.datasets[1].data = volumes;
+  graficoCotacaoInstance.data.datasets[1].backgroundColor = volumeColors;
   graficoCotacaoInstance.update();
 }
 
@@ -439,6 +494,43 @@ function calcularSerieLinha(ativo, resolMin) {
     const close = arr[arr.length - 1].preco;
     return { x: new Date(ts), y: close };
   });
+}
+
+function calcularSerieOHLCVolume(ativo, resolMin) {
+  const pontos = historicoCotacoes[ativo] || [];
+  if (pontos.length === 0) return { candles: [], volumes: [], volumeColors: [] };
+
+  const bucketMs = resolMin * 60 * 1000;
+  const buckets = new Map();
+  for (const p of pontos) {
+    const key = Math.floor(p.ts / bucketMs) * bucketMs;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(p);
+  }
+  const keys = Array.from(buckets.keys()).sort((a, b) => a - b);
+
+  const candles = [];
+  const volumes = [];
+  const volumeColors = [];
+
+  for (const ts of keys) {
+    const arr = buckets.get(ts).sort((a, b) => a.ts - b.ts);
+    const open = arr[0].preco;
+    const close = arr[arr.length - 1].preco;
+    let high = -Infinity;
+    let low = Infinity;
+    let vol = 0;
+    for (const it of arr) {
+      if (it.preco > high) high = it.preco;
+      if (it.preco < low) low = it.preco;
+      vol += it.vol || 0;
+    }
+    candles.push({ x: new Date(ts), o: open, h: high, l: low, c: close });
+    volumes.push({ x: new Date(ts), y: vol });
+    volumeColors.push(close >= open ? '#4caf50' : '#ef5350');
+  }
+
+  return { candles, volumes, volumeColors };
 }
 
 function formatarHoraMinuto(d) {

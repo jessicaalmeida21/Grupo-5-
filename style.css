@@ -243,6 +243,11 @@ body.dark-mode .blue-section {
   border-color: #224d35 !important;
 }
 
+body.dark-mode #graficoCotacao {
+  background-color: #0f1419;
+  border-radius: 10px;
+}
+
 /* Modal */
 .modal {
   position: fixed;
