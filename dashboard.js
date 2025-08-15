@@ -81,7 +81,7 @@
 		} catch(e) { /* no-op */ }
 	}
 
-	document.addEventListener('DOMContentLoaded', function(){
+	function onReady(){
 		registrarPluginsFinanceiros();
 		const cpf = HBShared.getSessionCPF();
 		if (!cpf){ window.location.href = 'login.html'; return; }
@@ -114,7 +114,12 @@
 			if (select) { select.value = preferido; }
 			aplicarLayout(preferido);
 		} catch(e) {}
-	});
+	}
+	if (document.readyState === 'loading'){
+		document.addEventListener('DOMContentLoaded', onReady);
+	} else {
+		onReady();
+	}
 
 	function logout(){ HBShared.clearSession(); window.location.href = 'index.html'; }
 	window.logout = logout;
@@ -293,8 +298,9 @@
 		const canvas = document.getElementById('graficoCotacao');
 		if(!canvas || !simpleCanvasCtx) return;
 		const ratio = window.devicePixelRatio || 1;
-		const cssW = canvas.clientWidth || canvas.parentElement?.clientWidth || 600;
-		const cssH = canvas.clientHeight || 220;
+		const parent = canvas.parentElement;
+		const cssW = canvas.clientWidth || (parent ? parent.clientWidth : 600) || 600;
+		const cssH = canvas.clientHeight || 260;
 		canvas.width = Math.floor(cssW * ratio);
 		canvas.height = Math.floor(cssH * ratio);
 		simpleCanvasCtx.setTransform(1,0,0,1,0,0);
@@ -327,11 +333,12 @@
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
 		simpleCanvasCtx = canvas.getContext('2d');
-		ajustarCanvas();
-		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
+		ajustarCanvas();
 		atualizarGraficoCotacao();
+		setTimeout(()=>{ ajustarCanvas(); atualizarGraficoCotacao(); }, 0);
+		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 	}
 
 	function atualizarGraficoCotacao(){
