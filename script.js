@@ -358,27 +358,39 @@ function inicializarGraficoCotacao() {
   if (graficoCotacaoInstance) {
     graficoCotacaoInstance.destroy();
   }
+
+  const areaGradient = (context) => {
+    const chart = context.chart;
+    const { ctx: gctx, chartArea } = chart;
+    if (!chartArea) return 'rgba(76,175,80,0.15)';
+    const gradient = gctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    gradient.addColorStop(0, 'rgba(76,175,80,0.35)');
+    gradient.addColorStop(1, 'rgba(76,175,80,0)');
+    return gradient;
+  };
+
   graficoCotacaoInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: [],
       datasets: [{
         label: 'Preço (R$)',
         data: [],
         borderColor: 'rgba(76,175,80,1)',
-        backgroundColor: 'rgba(76,175,80,0.15)',
+        backgroundColor: areaGradient,
         pointRadius: 0,
-        tension: 0.15,
-        fill: true
+        tension: 0.2,
+        fill: true,
+        borderWidth: 2
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      parsing: false,
       scales: {
-        x: { ticks: { maxRotation: 0 } },
-        y: { beginAtZero: false }
+        x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       },
       plugins: { legend: { display: true } }
     }
@@ -405,13 +417,14 @@ function registrarHistoricoCotacao() {
 
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const series = calcularSerieMedia(ativoGraficoAtual, resolucaoMinutosAtual);
-  graficoCotacaoInstance.data.labels = series.map(p => p.lb);
-  graficoCotacaoInstance.data.datasets[0].data = series.map(p => p.v);
+  const series = calcularSerieLinha(ativoGraficoAtual, resolucaoMinutosAtual);
+  const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
+  graficoCotacaoInstance.options.scales.x.time.unit = unit;
+  graficoCotacaoInstance.data.datasets[0].data = series;
   graficoCotacaoInstance.update();
 }
 
-function calcularSerieMedia(ativo, resolMin) {
+function calcularSerieLinha(ativo, resolMin) {
   const pontos = historicoCotacoes[ativo] || [];
   if (pontos.length === 0) return [];
   const bucketMs = resolMin * 60 * 1000;
@@ -419,15 +432,13 @@ function calcularSerieMedia(ativo, resolMin) {
   for (const p of pontos) {
     const key = Math.floor(p.ts / bucketMs) * bucketMs;
     if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(p.preco);
+    buckets.get(key).push(p);
   }
   const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
   return keys.map(ts => {
-    const arr = buckets.get(ts);
-    const avg = arr.reduce((a,b)=>a+b,0)/arr.length;
-    const d = new Date(ts);
-    const lb = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    return { ts, v: parseFloat(avg.toFixed(2)), lb };
+    const arr = buckets.get(ts).sort((a,b)=>a.ts-b.ts);
+    const close = arr[arr.length - 1].preco;
+    return { x: new Date(ts), y: close };
   });
 }
 
