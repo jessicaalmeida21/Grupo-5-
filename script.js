@@ -383,13 +383,12 @@ function inicializarGraficoCotacao() {
         borderWidth: 2
       }]
     },
-    options: {
+          options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      parsing: false,
       scales: {
-        x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, grid: { color: 'rgba(0,0,0,0.06)' } },
+        x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
         y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
       },
       plugins: { legend: { display: true } }
