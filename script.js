@@ -37,6 +37,52 @@ let ativoGraficoAtual = null;
 let resolucaoMinutosAtual = 1;
 let tipoGraficoAtual = 'line';
 
+// Plugin para linha do último preço
+const lastPriceLinePlugin = {
+  id: 'lastPriceLinePlugin',
+  afterDatasetsDraw(chart, args, pluginOptions) {
+    const ds = chart.data.datasets[0];
+    if (!ds || !ds.data || ds.data.length === 0) return;
+    const lastPoint = ds.data[ds.data.length - 1];
+    if (!lastPoint || typeof lastPoint.y !== 'number') return;
+    const yScale = chart.scales.y;
+    const xScale = chart.scales.x;
+    if (!yScale || !xScale) return;
+
+    const ctx = chart.ctx;
+    const yPx = yScale.getPixelForValue(lastPoint.y);
+
+    // Linha horizontal
+    ctx.save();
+    ctx.strokeStyle = 'rgba(76,175,80,0.8)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath();
+    ctx.moveTo(xScale.left, yPx);
+    ctx.lineTo(xScale.right, yPx);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Rótulo do preço
+    const label = `R$ ${lastPoint.y.toFixed(2)}`;
+    ctx.font = '12px Arial';
+    const metrics = ctx.measureText(label);
+    const paddingX = 6;
+    const paddingY = 3;
+    const boxW = metrics.width + paddingX * 2;
+    const boxH = 18;
+    const x = xScale.right - boxW;
+    const y = yPx - boxH / 2;
+
+    ctx.fillStyle = 'rgba(76,175,80,0.9)';
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, x + paddingX, y + boxH - paddingY - 3);
+
+    ctx.restore();
+  }
+};
+
 function registrarPluginFinanceiro() {
   try {
     const financial = window['chartjs-chart-financial'];
@@ -383,16 +429,17 @@ function inicializarGraficoCotacao() {
         borderWidth: 2
       }]
     },
-          options: {
+    options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
       scales: {
         x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.06)' } }
+        y: { beginAtZero: false, position: 'right', grid: { color: 'rgba(0,0,0,0.06)' } }
       },
-      plugins: { legend: { display: true } }
-    }
+      plugins: { legend: { display: false } }
+    },
+    plugins: [lastPriceLinePlugin]
   });
 
   registrarHistoricoCotacao();
