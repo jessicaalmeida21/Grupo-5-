@@ -199,5 +199,19 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof Chart !== 'undefined') {
+        // se o usuário já estiver logado, tenta iniciar o gráfico
+        try {
+          if (document.getElementById('portal') && !document.getElementById('portal').classList.contains('hidden')) {
+            if (typeof inicializarGraficoCotacao === 'function') {
+              inicializarGraficoCotacao();
+            }
+          }
+        } catch(e) {}
+      }
+    });
+  </script>
 </body>
 </html>

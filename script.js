@@ -92,6 +92,7 @@ function login() {
     atualizarBook();
     preencherSelectAtivos();
     preencherSelectAtivosGrafico();
+    // garante inicialização do gráfico
     inicializarGraficoCotacao();
     atualizarExtrato();
     atualizarOrdens();
@@ -365,14 +366,9 @@ function inicializarGraficoCotacao() {
   const baseDataset = fin ? {
     label: 'Candles',
     data: [],
-    // cores padrão do financial (v3)
-    upColor: 'rgba(76, 175, 80, 0.7)',
-    downColor: 'rgba(229, 57, 53, 0.7)',
-    borderUpColor: 'rgba(76, 175, 80, 1)',
-    borderDownColor: 'rgba(229, 57, 53, 1)',
-    wickUpColor: 'rgba(76, 175, 80, 1)',
-    wickDownColor: 'rgba(229, 57, 53, 1)',
-    borderColor: 'rgba(158, 158, 158, 1)',
+    color: { up: 'rgba(76, 175, 80, 0.7)', down: 'rgba(229, 57, 53, 0.7)', unchanged: 'rgba(158, 158, 158, 0.6)' },
+    borderColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
+    wickColor: { up: 'rgba(76, 175, 80, 1)', down: 'rgba(229, 57, 53, 1)', unchanged: 'rgba(158, 158, 158, 1)' },
     borderWidth: 1
   } : {
     label: 'Preço (R$)',
