@@ -44,13 +44,14 @@ const lastPriceLinePlugin = {
     const ds = chart.data.datasets[0];
     if (!ds || !ds.data || ds.data.length === 0) return;
     const lastPoint = ds.data[ds.data.length - 1];
-    if (!lastPoint || typeof lastPoint.y !== 'number') return;
+    const lastVal = typeof lastPoint === 'number' ? lastPoint : (typeof lastPoint?.y === 'number' ? lastPoint.y : null);
+    if (typeof lastVal !== 'number') return;
     const yScale = chart.scales.y;
     const xScale = chart.scales.x;
     if (!yScale || !xScale) return;
 
     const ctx = chart.ctx;
-    const yPx = yScale.getPixelForValue(lastPoint.y);
+    const yPx = yScale.getPixelForValue(lastVal);
 
     // Linha horizontal
     ctx.save();
@@ -64,7 +65,7 @@ const lastPriceLinePlugin = {
     ctx.setLineDash([]);
 
     // Rótulo do preço
-    const label = `R$ ${lastPoint.y.toFixed(2)}`;
+    const label = `R$ ${lastVal.toFixed(2)}`;
     ctx.font = '12px Arial';
     const metrics = ctx.measureText(label);
     const paddingX = 6;
