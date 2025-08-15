@@ -384,6 +384,7 @@
 })();
 
 // Ignora o bloco legado abaixo que foi colado inadvertidamente
+/* LEGACY_REMOVED
 if (false) {
 
 
@@ -749,3 +750,5 @@ if (false) {
 	}
 
 })();
+
+/* end of file */
