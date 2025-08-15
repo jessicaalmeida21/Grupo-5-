@@ -415,32 +415,63 @@ function inicializarGraficoCotacao() {
     return gradient;
   };
 
-  graficoCotacaoInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: 'Preço (R$)',
-        data: [],
-        borderColor: 'rgba(76,175,80,1)',
-        backgroundColor: areaGradient,
-        pointRadius: 0,
-        tension: 0.2,
-        fill: true,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      scales: {
-        x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: false, position: 'right', grid: { color: 'rgba(0,0,0,0.06)' } }
+  // Tenta criar com eixo temporal; se falhar, usa categoria com labels
+  try {
+    graficoCotacaoInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Preço (R$)',
+          data: [],
+          borderColor: 'rgba(76,175,80,1)',
+          backgroundColor: areaGradient,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: true,
+          borderWidth: 2
+        }]
       },
-      plugins: { legend: { display: false } }
-    },
-    plugins: [lastPriceLinePlugin]
-  });
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { type: 'time', time: { unit: 'minute' }, adapters: { date: { zone: 'utc' } }, ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          y: { beginAtZero: false, position: 'right', grid: { color: 'rgba(0,0,0,0.06)' } }
+        },
+        plugins: { legend: { display: false } }
+      },
+      plugins: [lastPriceLinePlugin]
+    });
+  } catch (e) {
+    graficoCotacaoInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Preço (R$)',
+          data: [],
+          borderColor: 'rgba(76,175,80,1)',
+          backgroundColor: areaGradient,
+          pointRadius: 0,
+          tension: 0.2,
+          fill: true,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { ticks: { maxRotation: 0 }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          y: { beginAtZero: false, position: 'right', grid: { color: 'rgba(0,0,0,0.06)' } }
+        },
+        plugins: { legend: { display: false } }
+      },
+      plugins: [lastPriceLinePlugin]
+    });
+  }
 
   registrarHistoricoCotacao();
   atualizarGraficoCotacao();
@@ -464,9 +495,21 @@ function registrarHistoricoCotacao() {
 function atualizarGraficoCotacao() {
   if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
   const series = calcularSerieLinha(ativoGraficoAtual, resolucaoMinutosAtual);
-  const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
-  graficoCotacaoInstance.options.scales.x.time.unit = unit;
-  graficoCotacaoInstance.data.datasets[0].data = series;
+  const isTime = graficoCotacaoInstance.options?.scales?.x?.type === 'time';
+  if (isTime) {
+    const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
+    graficoCotacaoInstance.options.scales.x.time.unit = unit;
+    graficoCotacaoInstance.data.datasets[0].data = series; // [{x: Date, y: num}]
+  } else {
+    // fallback: eixo categoria
+    const labels = series.map(p => {
+      const d = p.x instanceof Date ? p.x : new Date(p.x);
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    });
+    const valores = series.map(p => p.y);
+    graficoCotacaoInstance.data.labels = labels;
+    graficoCotacaoInstance.data.datasets[0].data = valores;
+  }
   graficoCotacaoInstance.update();
 }
 
