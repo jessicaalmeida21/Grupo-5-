@@ -189,7 +189,7 @@ input, select, button {
 
 /* Dark mode tuned to green theme with explicit text colors */
 body.dark-mode {
-  background-color: #0f1a12 !important; /* deep green */
+  background-color: #0f1a12 !important;
   color: var(--text-invert) !important;
 }
 
@@ -243,10 +243,6 @@ body.dark-mode .blue-section {
   border-color: #224d35 !important;
 }
 
-body.dark-mode #graficoCotacao {
-  background-color: #0f1419;
-  border-radius: 10px;
-}
 
 /* Modal */
 .modal {

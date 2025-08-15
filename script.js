@@ -9,10 +9,7 @@ const ativosB3 = {
   ABEV3: 14.25, MGLU3: 3.45, BBAS3: 49.10, LREN3: 18.30
 };
 
-// Histórico de cotações intradiário em memória (últimas 24h)
-const historicoCotacoes = {};
-Object.keys(ativosB3).forEach(ativo => { historicoCotacoes[ativo] = []; });
-const MAX_HISTORY_MS = 24 * 60 * 60 * 1000;
+
 
 const contas = {
   A: { nome: "Conta A", saldo: 100000, carteira: { PETR4: 300, VALE3: 200, ITUB4: 100 } },
@@ -28,48 +25,8 @@ let cpfAtual = "";
 let alertaAtivo = false;
 let precoAlvo = null;
 
-// Estado do gráfico de cotação
-let graficoCotacaoInstance = null;
-let graficoRSIInstance = null;
-let graficoVolumeInstance = null;
-let graficoMACDInstance = null;
-let ativoGraficoAtual = null;
-let resolucaoMinutosAtual = 1;
-let tipoGraficoAtual = 'line';
 
-function registrarPluginFinanceiro() {
-  try {
-    const financial = window['chartjs-chart-financial'];
-    if (financial) {
-      // Registra controladores/elementos se ainda não estiverem registrados
-      Chart.register(
-        financial.CandlestickController,
-        financial.OhlcController,
-        financial.CandlestickElement,
-        financial.OhlcElement
-      );
-    }
-  } catch (e) {
-    // silencioso: caso o plugin já esteja registrado ou indisponível
-  }
-}
 
-function semearHistoricoInicial(minutos = 60, tickIntervalSeg = 10) {
-  const agora = Date.now();
-  const inicio = agora - minutos * 60 * 1000;
-  for (let ativo in ativosB3) {
-    if (!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
-    if (historicoCotacoes[ativo].length >= 3) continue; // já possui histórico suficiente
-    let preco = ativosB3[ativo];
-    for (let t = inicio; t <= agora; t += tickIntervalSeg * 1000) {
-      // variação pequena a cada tick
-      const variacao = (Math.random() - 0.5) * 0.1;
-      preco = parseFloat(Math.max(0.01, (preco + variacao)).toFixed(2));
-      const vol = Math.floor(500 + Math.random() * 4500);
-      historicoCotacoes[ativo].push({ ts: t, preco, vol });
-    }
-  }
-}
 
 // Função de login
 function login() {
@@ -91,9 +48,7 @@ function login() {
     atualizarCarteira();
     atualizarBook();
     preencherSelectAtivos();
-    preencherSelectAtivosGrafico();
-    // garante inicialização do gráfico
-    inicializarGraficoCotacao();
+  
     atualizarExtrato();
     atualizarOrdens();
     document.getElementById('senhaMsg').innerText = "";
@@ -262,7 +217,6 @@ function acessarAnalise() {
 function abrirModalAnalise() {
   const modal = document.getElementById("analiseModal");
   modal.classList.remove("hidden");
-  criarGraficoAnalise();
 }
 
 function fecharAnalise() {
@@ -270,268 +224,6 @@ function fecharAnalise() {
   modal.classList.add("hidden");
 }
 
-// Função para criar gráfico usando Chart.js
-let graficoInstance = null;
-function criarGraficoAnalise() {
-  const ctx = document.getElementById("graficoAnalise").getContext("2d");
-  
-  // Organizar dados para gráfico: quantidade operada por ativo
-  const dadosAtivos = {};
-  extrato.forEach(op => {
-    if (!dadosAtivos[op.ativo]) dadosAtivos[op.ativo] = 0;
-    dadosAtivos[op.ativo] += op.qtd;
-  });
-  
-  const labels = Object.keys(dadosAtivos);
-  const data = Object.values(dadosAtivos);
-  
-  if(graficoInstance) {
-    graficoInstance.destroy();
-  }
-  
-  graficoInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Quantidade Operada',
-        data,
-        backgroundColor: 'rgba(102, 187, 106, 0.7)'
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-}
-
-// ============================
-// Gráfico de cotação em tempo real
-// ============================
-function preencherSelectAtivosGrafico() {
-  const select = document.getElementById('ativoGrafico');
-  if (!select) return;
-  select.innerHTML = '';
-  for (let ativo in ativosB3) {
-    const opt = document.createElement('option');
-    opt.value = ativo;
-    opt.textContent = ativo;
-    select.appendChild(opt);
-  }
-  // Seleciona primeiro ativo por padrão
-  const primeiro = Object.keys(ativosB3)[0];
-  select.value = primeiro;
-  ativoGraficoAtual = primeiro;
-}
-
-function inicializarGraficoCotacao() {
-  const canvas = document.getElementById('graficoCotacao');
-  if (!canvas) return;
-
-  semearHistoricoInicial(60, 10);
-
-  if (!ativoGraficoAtual) {
-    const keys = Object.keys(ativosB3);
-    if (keys.length > 0) ativoGraficoAtual = keys[0];
-  }
-
-  const selectAtivo = document.getElementById('ativoGrafico');
-  const selectRes = document.getElementById('resolucaoGrafico');
-  if (selectAtivo) {
-    selectAtivo.addEventListener('change', () => {
-      ativoGraficoAtual = selectAtivo.value;
-      atualizarGraficoCotacao();
-    });
-  }
-  if (selectRes) {
-    selectRes.addEventListener('change', () => {
-      resolucaoMinutosAtual = parseInt(selectRes.value, 10);
-      atualizarGraficoCotacao();
-    });
-    resolucaoMinutosAtual = parseInt(selectRes.value, 10);
-  }
-
-  const ctx = canvas.getContext('2d');
-  if (graficoCotacaoInstance) {
-    graficoCotacaoInstance.destroy();
-  }
-
-  // registra plugin de candlestick/ohlc
-  registrarPluginFinanceiro();
-
-  graficoCotacaoInstance = new Chart(ctx, {
-    type: 'candlestick',
-    data: {
-      datasets: [
-        {
-          label: 'Preço (R$)',
-          type: 'candlestick',
-          data: [],
-          upColor: '#4caf50',
-          downColor: '#ef5350',
-          borderUpColor: '#4caf50',
-          borderDownColor: '#ef5350',
-          borderColor: '#b0bec5',
-          wickColor: {
-            up: '#4caf50',
-            down: '#ef5350',
-            unchanged: '#b0bec5'
-          }
-        },
-        {
-          label: 'Volume',
-          type: 'bar',
-          data: [],
-          yAxisID: 'yVolume',
-          backgroundColor: [],
-          borderWidth: 0,
-          barPercentage: 0.9,
-          categoryPercentage: 1.0,
-          borderSkipped: false
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      parsing: false,
-      scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'minute' },
-          adapters: { date: { zone: 'utc' } },
-          ticks: { maxRotation: 0 },
-          grid: { color: 'rgba(0,0,0,0.06)' }
-        },
-        y: {
-          beginAtZero: false,
-          grid: { color: 'rgba(0,0,0,0.06)' }
-        },
-        yVolume: {
-          position: 'right',
-          beginAtZero: true,
-          grid: { display: false },
-          ticks: { display: false }
-        }
-      },
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          callbacks: {
-            title: function(items) {
-              if (!items || items.length === 0) return '';
-              const rawX = items[0].raw && items[0].raw.x ? items[0].raw.x : items[0].parsed && items[0].parsed.x ? items[0].parsed.x : null;
-              const d = rawX instanceof Date ? rawX : new Date(rawX || Date.now());
-              return d.toLocaleString('pt-BR');
-            },
-            label: function(ctx) {
-              if (ctx.dataset.type === 'candlestick' && ctx.raw) {
-                const r = ctx.raw;
-                return ` Abertura: ${r.o.toFixed(2)}  Máxima: ${r.h.toFixed(2)}  Mínima: ${r.l.toFixed(2)}  Fechamento: ${r.c.toFixed(2)}`;
-              }
-              if (ctx.dataset.type === 'bar') {
-                return ` Volume: ${ctx.raw.y}`;
-              }
-              return '';
-            }
-          }
-        }
-      }
-    }
-  });
-
-  registrarHistoricoCotacao();
-  atualizarGraficoCotacao();
-}
-
-function registrarHistoricoCotacao() {
-  const agora = Date.now();
-  for (let ativo in ativosB3) {
-    if (!historicoCotacoes[ativo]) historicoCotacoes[ativo] = [];
-    // volume sintético por tick
-    const vol = Math.floor(500 + Math.random() * 4500);
-    historicoCotacoes[ativo].push({ ts: agora, preco: ativosB3[ativo], vol });
-    // Limpeza do histórico (24h)
-    const limite = agora - MAX_HISTORY_MS;
-    while (historicoCotacoes[ativo].length > 0 && historicoCotacoes[ativo][0].ts < limite) {
-      historicoCotacoes[ativo].shift();
-    }
-  }
-}
-
-function atualizarGraficoCotacao() {
-  if (!graficoCotacaoInstance || !ativoGraficoAtual) return;
-  const { candles, volumes, volumeColors } = calcularSerieOHLCVolume(ativoGraficoAtual, resolucaoMinutosAtual);
-  const unit = resolucaoMinutosAtual >= 60 ? 'hour' : 'minute';
-  graficoCotacaoInstance.options.scales.x.time.unit = unit;
-  // candles
-  graficoCotacaoInstance.data.datasets[0].data = candles;
-  // volume
-  graficoCotacaoInstance.data.datasets[1].data = volumes;
-  graficoCotacaoInstance.data.datasets[1].backgroundColor = volumeColors;
-  graficoCotacaoInstance.update();
-}
-
-function calcularSerieLinha(ativo, resolMin) {
-  const pontos = historicoCotacoes[ativo] || [];
-  if (pontos.length === 0) return [];
-  const bucketMs = resolMin * 60 * 1000;
-  const buckets = new Map();
-  for (const p of pontos) {
-    const key = Math.floor(p.ts / bucketMs) * bucketMs;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(p);
-  }
-  const keys = Array.from(buckets.keys()).sort((a,b)=>a-b);
-  return keys.map(ts => {
-    const arr = buckets.get(ts).sort((a,b)=>a.ts-b.ts);
-    const close = arr[arr.length - 1].preco;
-    return { x: new Date(ts), y: close };
-  });
-}
-
-function calcularSerieOHLCVolume(ativo, resolMin) {
-  const pontos = historicoCotacoes[ativo] || [];
-  if (pontos.length === 0) return { candles: [], volumes: [], volumeColors: [] };
-
-  const bucketMs = resolMin * 60 * 1000;
-  const buckets = new Map();
-  for (const p of pontos) {
-    const key = Math.floor(p.ts / bucketMs) * bucketMs;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(p);
-  }
-  const keys = Array.from(buckets.keys()).sort((a, b) => a - b);
-
-  const candles = [];
-  const volumes = [];
-  const volumeColors = [];
-
-  for (const ts of keys) {
-    const arr = buckets.get(ts).sort((a, b) => a.ts - b.ts);
-    const open = arr[0].preco;
-    const close = arr[arr.length - 1].preco;
-    let high = -Infinity;
-    let low = Infinity;
-    let vol = 0;
-    for (const it of arr) {
-      if (it.preco > high) high = it.preco;
-      if (it.preco < low) low = it.preco;
-      vol += it.vol || 0;
-    }
-    candles.push({ x: new Date(ts), o: open, h: high, l: low, c: close });
-    volumes.push({ x: new Date(ts), y: vol });
-    volumeColors.push(close >= open ? '#4caf50' : '#ef5350');
-  }
-
-  return { candles, volumes, volumeColors };
-}
 
 function formatarHoraMinuto(d) {
   const hh = String(d.getHours()).padStart(2, '0');
@@ -817,19 +509,6 @@ function calcularSMA(series, period) {
   return out;
 }
 
-function calcularEMA(series, period) {
-  const out = [];
-  if (series.length === 0) return out;
-  const k = 2 / (period + 1);
-  let emaPrev = series[0].v;
-  out.push({ x: series[0].x, v: emaPrev });
-  for (let i = 1; i < series.length; i++) {
-    const ema = series[i].v * k + emaPrev * (1 - k);
-    emaPrev = ema;
-    out.push({ x: series[i].x, v: ema });
-  }
-  return out;
-}
 
 function calcularDesvioPadrao(janela) {
   if (janela.length === 0) return 0;
@@ -838,61 +517,5 @@ function calcularDesvioPadrao(janela) {
   return Math.sqrt(variancia);
 }
 
-function calcularBollinger(series, period, mult) {
-  const middle = calcularSMA(series, period);
-  const upper = [];
-  const lower = [];
-  for (let i = period - 1; i < series.length; i++) {
-    const janela = series.slice(i - period + 1, i + 1).map(p => p.v);
-    const sd = calcularDesvioPadrao(janela);
-    const m = middle[i - (period - 1)].v;
-    upper.push({ x: series[i].x, v: m + mult * sd });
-    lower.push({ x: series[i].x, v: m - mult * sd });
-  }
-  return { upper, middle, lower };
-}
 
-function calcularRSI(series, period) {
-  const out = [];
-  if (series.length < period + 1) return out;
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const delta = series[i].v - series[i - 1].v;
-    if (delta >= 0) gains += delta; else losses -= delta;
-  }
-  let avgGain = gains / period;
-  let avgLoss = losses / period;
-  const firstRs = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
-  out.push({ x: series[period].x, v: firstRs });
-  for (let i = period + 1; i < series.length; i++) {
-    const delta = series[i].v - series[i - 1].v;
-    const gain = delta > 0 ? delta : 0;
-    const loss = delta < 0 ? -delta : 0;
-    avgGain = ((avgGain * (period - 1)) + gain) / period;
-    avgLoss = ((avgLoss * (period - 1)) + loss) / period;
-    const rs = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
-    out.push({ x: series[i].x, v: rs });
-  }
-  return out;
-}
 
-function calcularMACD(series, fast, slow, signalPeriod) {
-  if (series.length === 0) return [];
-  const emaFast = calcularEMA(series, fast);
-  const emaSlow = calcularEMA(series, slow);
-  // alinhar pelo menor comprimento e timestamps
-  const mapSlow = new Map(emaSlow.map(p => [p.x, p.v]));
-  const macdRaw = [];
-  for (const p of emaFast) {
-    if (mapSlow.has(p.x)) macdRaw.push({ x: p.x, v: p.v - mapSlow.get(p.x) });
-  }
-  // sinal sobre os valores macd
-  const macdSignalArr = calcularEMA(macdRaw, signalPeriod);
-  const mapSignal = new Map(macdSignalArr.map(p => [p.x, p.v]));
-  const out = [];
-  for (const m of macdRaw) {
-    const s = mapSignal.get(m.x);
-    if (typeof s === 'number') out.push({ x: m.x, macd: m.v, signal: s, hist: m.v - s });
-  }
-  return out;
-}
