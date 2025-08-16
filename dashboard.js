@@ -24,6 +24,11 @@
 	let tvContainerEl = null;
 	let tvTooltipEl = null;
 
+	// ApexCharts fallback/option
+	let apexChart = null;
+	let apexSeriesCandles = [];
+	let apexSeriesVolume = [];
+
 	function calcularEMA(valores, period){
 		const k = 2/(period+1);
 		let ema = [];
@@ -135,7 +140,7 @@
 
 	function alterarLayout(){ const layout=document.getElementById('layout').value; aplicarLayout(layout); try{ localStorage.setItem('layoutPreferido', layout); }catch(e){} }
 	window.alterarLayout = alterarLayout;
-	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } try{ if(window.LightweightCharts && tvChart){ const isDark = document.body.classList.contains('dark-mode'); tvChart.applyOptions({ layout: { background: { type: 'solid', color: isDark? '#0b1220' : '#0f172a' }, textColor: isDark? '#d1d5db' : '#e5e7eb' }, grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } }, rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' }, timeScale: { borderColor: 'rgba(255,255,255,0.12)' } }); } }catch(e){} }
+	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } try{ const isDark = document.body.classList.contains('dark-mode'); if(window.LightweightCharts && tvChart){ tvChart.applyOptions({ layout: { background: { type: 'solid', color: isDark? '#0b1220' : '#0f172a' }, textColor: isDark? '#d1d5db' : '#e5e7eb' }, grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } }, rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' }, timeScale: { borderColor: 'rgba(255,255,255,0.12)' } }); } if(window.ApexCharts && apexChart){ apexChart.updateOptions({ theme:{ mode: isDark? 'dark':'light' }, grid:{ borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' } }, false, true); } }catch(e){} }
 
 	function configurarAlertas(){ alertaAtivo = document.getElementById('alertaPreco').checked; const precoInput = parseFloat(document.getElementById('precoAlvo').value); if(alertaAtivo){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } precoAlvo = precoInput; alert(`Alertas de preço ativados para valores >= R$${precoAlvo.toFixed(2)}.`); } else { precoAlvo = null; alert('Alertas de preço desativados.'); } }
 	window.configurarAlertas = configurarAlertas;
@@ -337,9 +342,17 @@
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); updateTvChartData(); });
 		if (selectRes) { selectRes.disabled = false; selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); updateTvChartData(); }); }
 		seedHistoricoInicial();
-		// Preferir Lightweight Charts
-		if (window.LightweightCharts){
+		// Preferir ApexCharts; depois Lightweight Charts; depois Chart.js/Canvas
+		if (window.ApexCharts){
 			if (canvas) canvas.style.display = 'none';
+			const tvDiv = document.getElementById('tvChart'); if (tvDiv) tvDiv.style.display = 'none';
+			initApexChartIfNeeded();
+			ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
+			updateApexChartData();
+			window.addEventListener('resize', ()=>{ updateApexChartData(); });
+		} else if (window.LightweightCharts){
+			if (canvas) canvas.style.display = 'none';
+			const tvDiv = document.getElementById('tvChart'); if (tvDiv) tvDiv.style.display = '';
 			initTvChartIfNeeded();
 			ensureTvTooltip();
 			ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
@@ -363,7 +376,7 @@
 		}
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 		atualizarGraficoCotacao();
-		setTimeout(()=>{ atualizarGraficoCotacao(); updateTvChartData(); }, 100);
+		setTimeout(()=>{ atualizarGraficoCotacao(); updateTvChartData(); updateApexChartData(); }, 100);
 	}
 
 	function atualizarGraficoCotacao(){
@@ -377,6 +390,10 @@
 		const candles = Array.isArray(res.candles) ? res.candles : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
+		if (window.ApexCharts && apexChart){
+			updateApexChartData();
+			return;
+		}
 		if (window.LightweightCharts && tvChart){
 			updateTvChartData();
 			return;
@@ -397,16 +414,19 @@
 		if (tvChart || !window.LightweightCharts) return;
 		tvContainerEl = document.getElementById('tvChart');
 		if (!tvContainerEl) return;
-		const isDark = document.body.classList.contains('dark-mode');
-		tvChart = LightweightCharts.createChart(tvContainerEl, {
-			layout: { background: { type: 'solid', color: isDark ? '#0b1220' : '#0f172a' }, textColor: isDark ? '#d1d5db' : '#e5e7eb' },
-			grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
-			crosshair: { mode: 0 },
-			rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' },
-			timeScale: { borderColor: 'rgba(255,255,255,0.12)', timeVisible: true, secondsVisible: false },
-		});
-		tvCandleSeries = tvChart.addCandlestickSeries({ upColor: '#16a34a', downColor: '#ef4444', wickUpColor: '#16a34a', wickDownColor: '#ef4444', borderVisible: false });
-							tvVolumeSeries = tvChart.addHistogramSeries({ priceScaleId: '', priceFormat: { type: 'volume' }, color: 'rgba(59,130,246,0.5)', base: 0, lineWidth: 2 }); tvVolumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+							const isDark = document.body.classList.contains('dark-mode');
+					 tvChart = LightweightCharts.createChart(tvContainerEl, {
+						layout: { background: { type: 'solid', color: isDark ? '#0b1220' : '#0f172a' }, textColor: isDark ? '#d1d5db' : '#e5e7eb' },
+						grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
+						crosshair: { mode: 0 },
+						rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' },
+						timeScale: { borderColor: 'rgba(255,255,255,0.12)', timeVisible: true, secondsVisible: false },
+					});
+					// garantir tamanho inicial
+					tvChart.applyOptions({ width: tvContainerEl.clientWidth, height: tvContainerEl.clientHeight });
+					tvCandleSeries = tvChart.addCandlestickSeries({ upColor: '#16a34a', downColor: '#ef4444', wickUpColor: '#16a34a', wickDownColor: '#ef4444', borderVisible: false });
+					tvVolumeSeries = tvChart.addHistogramSeries({ priceScaleId: 'volume', priceFormat: { type: 'volume' }, color: 'rgba(59,130,246,0.5)', priceLineVisible: false });
+					tvChart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 		const toggleCandle = document.getElementById('toggleCandle');
 		const toggleVolume = document.getElementById('toggleVolume');
 		if (toggleCandle) toggleCandle.addEventListener('change', ()=>{ if(!tvChart) return; tvCandleSeries.applyOptions({ visible: toggleCandle.checked }); });
@@ -421,8 +441,8 @@
 		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], times: [] };
 		const { candles, times } = res;
 		if (!candles.length){ tvCandleSeries.setData([]); tvVolumeSeries.setData([]); return; }
-		const tvData = candles.map((c, idx)=>({ time: Math.floor((times[idx]||0)/1000), open:c.o, high:c.h, low:c.l, close:c.c }));
-		const volData = candles.map((c, idx)=>({ time: Math.floor((times[idx]||0)/1000), value: Math.round(Math.abs(c.c - c.o) * 1000), color: (c.c>=c.o ? 'rgba(22,163,74,0.6)' : 'rgba(239,68,68,0.6)') }));
+		const tvData = candles.map((c, idx)=>({ time: Math.floor(((times[idx]||Date.now())/1000)), open: Number(c.o), high: Number(c.h), low: Number(c.l), close: Number(c.c) }));
+		const volData = candles.map((c, idx)=>({ time: Math.floor(((times[idx]||Date.now())/1000)), value: Math.max(1, Math.round(Math.abs(c.c - c.o) * 1000)), color: (c.c>=c.o ? 'rgba(22,163,74,0.6)' : 'rgba(239,68,68,0.6)') }));
 		tvCandleSeries.setData(tvData);
 		tvVolumeSeries.setData(volData);
 	}
@@ -455,6 +475,47 @@
 				tvTooltipEl.style.display = 'block';
 			});
 		}
+	}
+
+	function initApexChartIfNeeded(){
+		if (apexChart || !window.ApexCharts) return;
+		const el = document.getElementById('apexChart');
+		if (!el) return;
+		const isDark = document.body.classList.contains('dark-mode');
+		const options = {
+			chart: {
+				type: 'candlestick', height: '100%', width: '100%', animations: { enabled: false }, toolbar: { show: true, tools: { download: false } }, zoom: { enabled: true }
+			},
+			theme: { mode: isDark ? 'dark' : 'light' },
+			xaxis: { type: 'datetime' },
+			yaxis: { tooltip: { enabled: true } },
+			series: [ { name: 'Candles', data: [] }, { name: 'Volume', type: 'column', data: [], yAxisIndex: 1 } ],
+			plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+			stroke: { width: [1,1] },
+			grid: { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' },
+			tooltip: { shared: true },
+			dataLabels: { enabled: false },
+		};
+		apexChart = new ApexCharts(el, options);
+		apexChart.render();
+		const toggleCandle = document.getElementById('toggleCandle');
+		const toggleVolume = document.getElementById('toggleVolume');
+		if (toggleCandle) toggleCandle.addEventListener('change', ()=>{ if(!apexChart) return; apexChart.toggleSeries('Candles'); });
+		if (toggleVolume) toggleVolume.addEventListener('change', ()=>{ if(!apexChart) return; apexChart.toggleSeries('Volume'); });
+	}
+
+	function updateApexChartData(){
+		if (!apexChart) return;
+		const selectRes = document.getElementById('resolucaoGrafico');
+		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], times: [] };
+		const { candles, times } = res;
+		apexSeriesCandles = (candles||[]).map((c, i)=>({ x: new Date(times[i]||Date.now()), y: [Number(c.o), Number(c.h), Number(c.l), Number(c.c)] }));
+		apexSeriesVolume = (candles||[]).map((c, i)=>({ x: new Date(times[i]||Date.now()), y: Math.max(1, Math.round(Math.abs(c.c-c.o)*1000)) }));
+		apexChart.updateSeries([
+			{ name: 'Candles', data: apexSeriesCandles },
+			{ name: 'Volume', type: 'column', data: apexSeriesVolume }
+		], true);
 	}
 
 // Fecha IIFE principal
