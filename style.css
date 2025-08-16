@@ -37,8 +37,10 @@ a:hover { color: #166534; }
   padding: 10px 12px;
 }
 
-.chart-resp{position:relative;width:100%;height:260px}
+.chart-resp{position:relative;width:100%;height:320px}
 .chart-resp canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+#tvChart{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;min-height:200px}
+#apexChart{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
 
 .chart-card.compact {
   flex: 0 0 300px;
@@ -432,4 +434,14 @@ body.dark-mode #configuracao select {
 
 body.dark-mode .chart-card { background: #111827; border-color: #374151; }
 body.dark-mode .chart-controls label { color: #e5e7eb; }
+#tvChart{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+.chart-toggles{display:flex;gap:12px;align-items:center;justify-content:flex-start;margin-top:6px;font-size:12px;color:#374151}
+.chart-toggles input{margin-right:4px}
+body.dark-mode .chart-toggles{color:#e5e7eb}
+/* Tooltip do Lightweight Charts */
+.tv-tooltip{position:absolute;pointer-events:none;background:#111827;color:#e5e7eb;padding:8px 10px;border-radius:8px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,0.08);min-width:170px}
+.tv-tooltip .line{display:flex;justify-content:space-between;gap:8px}
+.tv-tooltip .val-up{color:#22c55e}
+.tv-tooltip .val-down{color:#ef4444}
+.tv-tooltip .val-neutral{color:#60a5fa}
 

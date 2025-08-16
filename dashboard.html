@@ -44,14 +44,22 @@
 					<label for="resolucaoGrafico">Resolução:</label>
 					<select id="resolucaoGrafico">
 						<option value="1">1 minuto</option>
-						<option value="5">5 minutos</option>
+						<option value="5" selected>5 minutos</option>
 						<option value="30">30 minutos</option>
 						<option value="60">1 hora</option>
 					</select>
 
 
 				</div>
-				<div class="chart-resp"><canvas id="graficoCotacao"></canvas></div>
+				<div class="chart-resp">
+					<div id="apexChart"></div>
+					<div id="tvChart" style="display:none"><!-- Lightweight Charts container --></div>
+					<canvas id="graficoCotacao" width="600" height="260" style="display:none"></canvas>
+				</div>
+				<div class="chart-toggles">
+					<label><input type="checkbox" id="toggleCandle" checked /> Candlestick</label>
+					<label><input type="checkbox" id="toggleVolume" checked /> Volume</label>
+				</div>
 			</div>
 		</div>
 
@@ -134,6 +142,8 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1"></script>
+	<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
 	<script src="shared.js?v=5"></script>
 	<script src="dashboard.js?v=5"></script>
 </body>
