@@ -16,6 +16,7 @@
 	const MAX_HISTORY_MS = 24*60*60*1000;
 
 	let priceChart, volumeChart, rsiChart, macdChart;
+	let apexChart = null;
 
 	function calcularEMA(valores, period){
 		const k = 2/(period+1);
@@ -334,8 +335,29 @@
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
-		// Preferir Chart.js; fallback Canvas2D (removido ApexCharts para preservar compatibilidade)
-		if (window.Chart){
+		// Preferir ApexCharts (candlestick) para aproximar do gráfico de referência; fallback Chart.js e Canvas2D
+		if (window.ApexCharts){
+			const apexDiv = document.getElementById('graficoApex');
+			if (apexDiv){
+				apexDiv.style.display = '';
+				canvas.style.display = 'none';
+				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
+				const isDark = document.body.classList.contains('dark-mode');
+				const options = {
+					chart: { type: 'candlestick', height: 240, background: 'transparent', animations: {enabled:false} },
+					theme: { mode: isDark ? 'dark' : 'light' },
+					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+					xaxis: { type: 'category' },
+					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2) } },
+					grid: { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' },
+					series: [{ data: [] }]
+				};
+				if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
+				apexChart = new ApexCharts(apexDiv, options);
+				apexChart.render();
+			}
+			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
+		} else if (window.Chart){
 			const ctx = canvas.getContext('2d');
 			canvas.style.display = '';
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
@@ -346,10 +368,10 @@
 			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-		simpleCanvasCtx = canvas.getContext('2d');
+			simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
-		ajustarCanvas();
-		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			ajustarCanvas();
+			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
@@ -370,7 +392,10 @@
 		const candles = Array.isArray(res.candles) ? res.candles : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
-		if (graficoCotacaoInstance){
+		if (apexChart){
+			const data = lastCandles.map((c,i)=>({ x: lastLabels[i], y: [c.o, c.h, c.l, c.c] }));
+			apexChart.updateSeries([{ data }]);
+		} else if (graficoCotacaoInstance){
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update('none');
