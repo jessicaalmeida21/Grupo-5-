@@ -393,10 +393,10 @@
 			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-			simpleCanvasCtx = canvas.getContext('2d');
+		simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
-			ajustarCanvas();
-			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+		ajustarCanvas();
+		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
