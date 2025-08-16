@@ -329,7 +329,7 @@
 		if (!canvas) return;
 		// Garante dimensões visíveis
 		canvas.style.width = '100%';
-		canvas.style.height = '100%';
+		canvas.style.height = '220px';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
@@ -344,12 +344,12 @@
 				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
 				const isDark = document.body.classList.contains('dark-mode');
 				const options = {
-					chart: { type: 'candlestick', height: 240, background: 'transparent', animations: {enabled:false} },
+					chart: { type: 'candlestick', height: 220, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
 					theme: { mode: isDark ? 'dark' : 'light' },
 					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
-					xaxis: { type: 'category' },
-					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2) } },
-					grid: { borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' },
+					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } } },
+					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
+					grid: { borderColor: 'rgba(255,255,255,0.08)' },
 					series: [{ data: [] }]
 				};
 				if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
