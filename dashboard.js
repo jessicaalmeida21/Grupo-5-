@@ -17,6 +17,13 @@
 
 	let priceChart, volumeChart, rsiChart, macdChart;
 
+	// TradingView-like chart (Lightweight Charts)
+	let tvChart = null;
+	let tvCandleSeries = null;
+	let tvVolumeSeries = null;
+	let tvContainerEl = null;
+	let tvTooltipEl = null;
+
 	function calcularEMA(valores, period){
 		const k = 2/(period+1);
 		let ema = [];
@@ -128,7 +135,7 @@
 
 	function alterarLayout(){ const layout=document.getElementById('layout').value; aplicarLayout(layout); try{ localStorage.setItem('layoutPreferido', layout); }catch(e){} }
 	window.alterarLayout = alterarLayout;
-	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } }
+	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } try{ if(window.LightweightCharts && tvChart){ const isDark = document.body.classList.contains('dark-mode'); tvChart.applyOptions({ layout: { background: { type: 'solid', color: isDark? '#0b1220' : '#0f172a' }, textColor: isDark? '#d1d5db' : '#e5e7eb' }, grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } }, rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' }, timeScale: { borderColor: 'rgba(255,255,255,0.12)' } }); } }catch(e){} }
 
 	function configurarAlertas(){ alertaAtivo = document.getElementById('alertaPreco').checked; const precoInput = parseFloat(document.getElementById('precoAlvo').value); if(alertaAtivo){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } precoAlvo = precoInput; alert(`Alertas de preço ativados para valores >= R$${precoAlvo.toFixed(2)}.`); } else { precoAlvo = null; alert('Alertas de preço desativados.'); } }
 	window.configurarAlertas = configurarAlertas;
@@ -273,7 +280,7 @@
 
 	function agruparOHLC(ativo, stepMin){
 		const pontos = historicoCotacoes[ativo] || [];
-		if(!pontos.length) return { labels: [], candles: [] };
+		if(!pontos.length) return { labels: [], candles: [], times: [] };
 		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
 		const map = new Map();
 		const step = Math.max(1, parseInt(stepMin, 10) || 1);
@@ -284,13 +291,14 @@
 			const keyDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, flooredMin, 0, 0);
 			const key = keyDate.getTime();
 			const label = step >= 60 ? `${String(hour).padStart(2,'0')}:00` : `${String(hour).padStart(2,'0')}:${String(flooredMin).padStart(2,'0')}`;
-			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label });
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label, ts:key });
 			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; }
 		}
 		const keys = Array.from(map.keys()).sort((a,b)=>a-b);
 		const labels = keys.map(k=> map.get(k).label);
 		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
-		return { labels, candles };
+		const times = keys.map(k=> map.get(k).ts);
+		return { labels, candles, times };
 	}
 
 	function ajustarCanvas(){
@@ -324,50 +332,55 @@
 
 	function inicializarGraficoCotacao(){
 		const canvas = document.getElementById('graficoCotacao');
-		if (!canvas) return;
-		// Garante dimensões visíveis
-		canvas.style.width = '100%';
-		canvas.style.height = '100%';
 		const selectAtivo = document.getElementById('ativoGrafico');
-		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
-		if (selectRes) selectRes.disabled = false;
-		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
-		// Preferir Chart.js; fallback Canvas2D (removido ApexCharts para preservar compatibilidade)
-		if (window.Chart){
+		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); updateTvChartData(); });
+		if (selectRes) { selectRes.disabled = false; selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); updateTvChartData(); }); }
+		seedHistoricoInicial();
+		// Preferir Lightweight Charts
+		if (window.LightweightCharts){
+			if (canvas) canvas.style.display = 'none';
+			initTvChartIfNeeded();
+			ensureTvTooltip();
+			ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
+			updateTvChartData();
+			window.addEventListener('resize', ()=>{ updateTvChartData(); });
+		} else if (window.Chart && canvas){
+			canvas.style.width = '100%';
+			canvas.style.height = '100%';
 			const ctx = canvas.getContext('2d');
-			canvas.style.display = '';
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
 			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
 			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
-			simpleCanvasCtx = null;
+			ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
-		} else {
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-		simpleCanvasCtx = canvas.getContext('2d');
+		} else if (canvas){
+			simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
-		ajustarCanvas();
-		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			canvas.style.width = '100%';
+			canvas.style.height = '100%';
+			ajustarCanvas();
+			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		}
-		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 		atualizarGraficoCotacao();
-		// Segunda atualização pós layout para garantir render em containers flex
-		setTimeout(()=>{ atualizarGraficoCotacao(); }, 100);
+		setTimeout(()=>{ atualizarGraficoCotacao(); updateTvChartData(); }, 100);
 	}
 
 	function atualizarGraficoCotacao(){
-		// Ajustar canvas somente no fallback Canvas2D
 		if (!graficoCotacaoInstance) ajustarCanvas();
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
 		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
-		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [] };
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], times: [] };
 		const labels = Array.isArray(res.labels) ? res.labels : [];
 		const candles = Array.isArray(res.candles) ? res.candles : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
+		if (window.LightweightCharts && tvChart){
+			updateTvChartData();
+			return;
+		}
 		if (graficoCotacaoInstance){
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
@@ -379,6 +392,70 @@
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
+
+	function initTvChartIfNeeded(){
+		if (tvChart || !window.LightweightCharts) return;
+		tvContainerEl = document.getElementById('tvChart');
+		if (!tvContainerEl) return;
+		const isDark = document.body.classList.contains('dark-mode');
+		tvChart = LightweightCharts.createChart(tvContainerEl, {
+			layout: { background: { type: 'solid', color: isDark ? '#0b1220' : '#0f172a' }, textColor: isDark ? '#d1d5db' : '#e5e7eb' },
+			grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
+			crosshair: { mode: 0 },
+			rightPriceScale: { borderColor: 'rgba(255,255,255,0.12)' },
+			timeScale: { borderColor: 'rgba(255,255,255,0.12)', timeVisible: true, secondsVisible: false },
+		});
+		tvCandleSeries = tvChart.addCandlestickSeries({ upColor: '#16a34a', downColor: '#ef4444', wickUpColor: '#16a34a', wickDownColor: '#ef4444', borderVisible: false });
+		tvVolumeSeries = tvChart.addHistogramSeries({ priceScaleId: '', priceFormat: { type: 'volume' }, color: 'rgba(59,130,246,0.5)', base: 0, lineWidth: 2 });
+		const toggleCandle = document.getElementById('toggleCandle');
+		const toggleVolume = document.getElementById('toggleVolume');
+		if (toggleCandle) toggleCandle.addEventListener('change', ()=>{ if(!tvChart) return; tvCandleSeries.applyOptions({ visible: toggleCandle.checked }); });
+		if (toggleVolume) toggleVolume.addEventListener('change', ()=>{ if(!tvChart) return; tvVolumeSeries.applyOptions({ visible: toggleVolume.checked }); });
+		new ResizeObserver(()=>{ if(tvChart) tvChart.applyOptions({ width: tvContainerEl.clientWidth, height: tvContainerEl.clientHeight }); }).observe(tvContainerEl);
+	}
+
+	function updateTvChartData(){
+		if (!tvChart) return;
+		const selectRes = document.getElementById('resolucaoGrafico');
+		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], times: [] };
+		const { candles, times } = res;
+		if (!candles.length){ tvCandleSeries.setData([]); tvVolumeSeries.setData([]); return; }
+		const tvData = candles.map((c, idx)=>({ time: Math.floor((times[idx]||0)/1000), open:c.o, high:c.h, low:c.l, close:c.c }));
+		const volData = candles.map((c, idx)=>({ time: Math.floor((times[idx]||0)/1000), value: Math.round(Math.abs(c.c - c.o) * 1000), color: (c.c>=c.o ? 'rgba(22,163,74,0.6)' : 'rgba(239,68,68,0.6)') }));
+		tvCandleSeries.setData(tvData);
+		tvVolumeSeries.setData(volData);
+	}
+
+	function ensureTvTooltip(){
+		if (!tvContainerEl) return;
+		if (tvTooltipEl) return;
+		tvTooltipEl = document.createElement('div');
+		tvTooltipEl.className = 'tv-tooltip';
+		tvTooltipEl.style.display = 'none';
+		tvContainerEl.appendChild(tvTooltipEl);
+		if (tvChart){
+			tvChart.subscribeCrosshairMove(param => {
+				if (!param || !param.time || !param.seriesData) { tvTooltipEl.style.display = 'none'; return; }
+				const candle = param.seriesData.get(tvCandleSeries);
+				if (!candle){ tvTooltipEl.style.display = 'none'; return; }
+				const dt = new Date((param.time)*1000);
+				const title = dt.toLocaleDateString('pt-BR')+`, ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
+				const up = candle.close >= candle.open;
+				tvTooltipEl.innerHTML = `<div style="font-weight:700;margin-bottom:4px">${title}</div>
+					<div class="line"><span>Abertura:</span><span class="${up?'val-up':'val-down'}">${candle.open.toFixed(2)}</span></div>
+					<div class="line"><span>Máxima:</span><span class="val-neutral">${candle.high.toFixed(2)}</span></div>
+					<div class="line"><span>Mínima:</span><span class="val-down">${candle.low.toFixed(2)}</span></div>
+					<div class="line"><span>Fechamento:</span><span class="${up?'val-up':'val-down'}">${candle.close.toFixed(2)}</span></div>`;
+				const rect = tvContainerEl.getBoundingClientRect();
+				const x = (param.point?.x || 0) + 12;
+				const y = (param.point?.y || 0) + 12;
+				tvTooltipEl.style.left = `${Math.min(rect.width-10, Math.max(6, x))}px`;
+				tvTooltipEl.style.top = `${Math.min(rect.height-10, Math.max(6, y))}px`;
+				tvTooltipEl.style.display = 'block';
+			});
+		}
+	}
 
 // Fecha IIFE principal
 })();
