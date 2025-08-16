@@ -342,7 +342,7 @@
 			const radios = document.querySelectorAll('input[name="chartMode"]');
 			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
 		}catch(e){}
-		// Preferir ApexCharts (candlestick) para aproximar do gráfico de referência; fallback Chart.js e Canvas2D
+		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
 		if (window.ApexCharts){
 			const apexDiv = document.getElementById('graficoApex');
 			if (apexDiv){
@@ -382,21 +382,12 @@
 				apexChart.render();
 			}
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
-		} else if (window.Chart){
-			const ctx = canvas.getContext('2d');
-			canvas.style.display = '';
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
-			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
-			setTimeout(function(){ try{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } }catch(e){} }, 50);
-			simpleCanvasCtx = null;
-			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-		simpleCanvasCtx = canvas.getContext('2d');
+			simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
-		ajustarCanvas();
-		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			ajustarCanvas();
+			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
