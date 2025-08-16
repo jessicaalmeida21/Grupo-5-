@@ -419,8 +419,8 @@ body.dark-mode #configuracao select {
 
 #graficoCotacao {
   width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
+  height: 260px;
+  max-width: 100%;
   display: block;
 }
 
