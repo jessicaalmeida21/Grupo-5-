@@ -326,8 +326,7 @@
 		const canvas = document.getElementById('graficoCotacao');
 		if (!canvas) return;
 		// Garante dimensões visíveis
-		if (!canvas.style.height) canvas.style.height = '260px';
-		if (!canvas.style.width) canvas.style.width = '100%';
+		canvas.style.width = '100%';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
@@ -339,7 +338,7 @@
 			canvas.style.display = '';
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
 			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
-			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
+			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.4, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
 			simpleCanvasCtx = null;
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
