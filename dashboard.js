@@ -7,6 +7,7 @@
 	let ordens = [];
 	let alertaAtivo = false;
 	let precoAlvo = null;
+	let ultimoAlertaPorAtivo = {};
 
 	// Real-time chart state
 	let graficoCotacaoInstance = null;
@@ -166,7 +167,7 @@
 
 	function aplicarOrdem(o){ if(o.tipo==='Compra'){ usuarioAtual.saldo -= o.total; usuarioAtual.carteira[o.ativo] = (usuarioAtual.carteira[o.ativo]||0)+o.qtd; } else { usuarioAtual.saldo += o.total; usuarioAtual.carteira[o.ativo] -= o.qtd; if(usuarioAtual.carteira[o.ativo]<=0) delete usuarioAtual.carteira[o.ativo]; } }
 
-	setInterval(()=>{ if(!usuarioAtual) return; for(let ativo in ativosB3){ const variacao=(Math.random()-0.5)*0.1; ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2)); if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01; } registrarHistoricoCotacao(); ordens.forEach(o=>{ if(o.status==='Aceita'){ const precoAtual=ativosB3[o.ativo]; if((o.tipo==='Compra' && precoAtual<=o.valor) || (o.tipo==='Venda' && precoAtual>=o.valor)){ aplicarOrdem(o); o.status='Executada'; o.dataHora=new Date().toLocaleString(); o.timestamp=Date.now(); extrato.unshift(o); if(alertaAtivo && precoAlvo!==null){ if((o.tipo==='Compra' && precoAtual<=precoAlvo) || (o.tipo==='Venda' && precoAtual>=precoAlvo)){ alert(`Alerta de preço: ativo ${o.ativo} atingiu preço alvo de R$${precoAlvo.toFixed(2)}.`); } } } } }); atualizarBook(); atualizarOrdens(); atualizarCarteira(); atualizarExtrato(); atualizarGraficoCotacao(); }, 10000);
+	setInterval(()=>{ if(!usuarioAtual) return; for(let ativo in ativosB3){ const variacao=(Math.random()-0.5)*0.1; ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2)); if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01; } registrarHistoricoCotacao(); ordens.forEach(o=>{ if(o.status==='Aceita'){ const precoAtual=ativosB3[o.ativo]; if((o.tipo==='Compra' && precoAtual<=o.valor) || (o.tipo==='Venda' && precoAtual>=o.valor)){ aplicarOrdem(o); o.status='Executada'; o.dataHora=new Date().toLocaleString(); o.timestamp=Date.now(); extrato.unshift(o); if(alertaAtivo && precoAlvo!==null){ if((o.tipo==='Compra' && precoAtual<=precoAlvo) || (o.tipo==='Venda' && precoAtual>=precoAlvo)){ alert(`Alerta de preço: ativo ${o.ativo} atingiu preço alvo de R$${precoAlvo.toFixed(2)}.`); } } } } }); atualizarBook(); atualizarOrdens(); atualizarCarteira(); atualizarExtrato(); atualizarGraficoCotacao(); verificarAlertasPreco(); }, 10000);
 
 	window.alterarSenha = function(){ const novaSenha=document.getElementById('novaSenha').value.trim(); if(novaSenha.length<3){ document.getElementById('senhaMsg').innerText = 'A nova senha deve ter pelo menos 3 caracteres.'; return; } const cpf = usuarioAtual?.cpf; if(!cpf){ document.getElementById('senhaMsg').innerText='Erro: usuário não autenticado.'; return; } usuarios[cpf].senha = novaSenha; HBShared.setUsuarios(usuarios); document.getElementById('senhaMsg').innerText='Senha alterada com sucesso!'; document.getElementById('novaSenha').value=''; }
 
@@ -377,6 +378,7 @@
 		}
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
+	function verificarAlertasPreco(){ if(!alertaAtivo || precoAlvo===null) return; const agora=Date.now(); for(let ativo in ativosB3){ const p=ativosB3[ativo]; const hist=historicoCotacoes[ativo]||[]; const prev=hist.length>1?hist[hist.length-2].preco:p; const cruzou=(prev<precoAlvo && p>=precoAlvo) || (prev>precoAlvo && p<=precoAlvo); if(cruzou){ const last=ultimoAlertaPorAtivo[ativo]||0; if(agora-last>60000){ alert(`Alerta de preço: ${ativo} cruzou R$${precoAlvo.toFixed(2)} (atual R$${p.toFixed(2)}).`); ultimoAlertaPorAtivo[ativo]=agora; } } } }
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
