@@ -105,6 +105,7 @@
 
 		preencherSelectAtivos();
 		preencherSelectAtivosGrafico();
+		try{ const sel=document.getElementById('resolucaoGrafico'); if(sel){ sel.addEventListener('change', atualizarGraficoCotacao); } }catch(e){}
 		atualizarCarteira();
 		atualizarBook();
 		atualizarExtrato();

@@ -433,3 +433,4 @@ body.dark-mode #configuracao select {
 body.dark-mode .chart-card { background: #111827; border-color: #374151; }
 body.dark-mode .chart-controls label { color: #e5e7eb; }
 
+.apex-container{ width:100%; height:auto; aspect-ratio: 1 / 1; }
