@@ -406,7 +406,7 @@
 			timeScale: { borderColor: 'rgba(255,255,255,0.12)', timeVisible: true, secondsVisible: false },
 		});
 		tvCandleSeries = tvChart.addCandlestickSeries({ upColor: '#16a34a', downColor: '#ef4444', wickUpColor: '#16a34a', wickDownColor: '#ef4444', borderVisible: false });
-		tvVolumeSeries = tvChart.addHistogramSeries({ priceScaleId: '', priceFormat: { type: 'volume' }, color: 'rgba(59,130,246,0.5)', base: 0, lineWidth: 2 });
+							tvVolumeSeries = tvChart.addHistogramSeries({ priceScaleId: '', priceFormat: { type: 'volume' }, color: 'rgba(59,130,246,0.5)', base: 0, lineWidth: 2 }); tvVolumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 		const toggleCandle = document.getElementById('toggleCandle');
 		const toggleVolume = document.getElementById('toggleVolume');
 		if (toggleCandle) toggleCandle.addEventListener('change', ()=>{ if(!tvChart) return; tvCandleSeries.applyOptions({ visible: toggleCandle.checked }); });
