@@ -7,7 +7,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="style.css?v=10" />
+	<link rel="stylesheet" href="style.css?v=11" />
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
@@ -145,7 +145,23 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-	<script src="shared.js?v=10"></script>
-	<script src="dashboard.js?v=10"></script>
+	<script src="shared.js?v=11"></script>
+	<script src="dashboard.js?v=11"></script>
+	<script>
+	(function(){
+	  function ensureApex(cb){
+	    if(window.ApexCharts){ cb(); return; }
+	    var s=document.createElement('script');
+	    s.src='https://unpkg.com/apexcharts@3.49.1/dist/apexcharts.min.js';
+	    s.onload=cb; document.head.appendChild(s);
+	  }
+	  function boot(){ try{ if (typeof inicializarGraficoCotacao==='function'){ inicializarGraficoCotacao(); } }catch(e){}
+	    try{ if (typeof atualizarGraficoCotacao==='function'){ atualizarGraficoCotacao(); } }catch(e){}
+	  }
+	  if(document.readyState==='loading'){
+	    document.addEventListener('DOMContentLoaded', function(){ ensureApex(boot); });
+	  } else { ensureApex(boot); }
+	})();
+	</script>
 </body>
 </html>
