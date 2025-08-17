@@ -45,7 +45,7 @@
 					<label for="resolucaoGrafico">Tempo Gráfico:</label>
 					<select id="resolucaoGrafico">
 						<option value="1">1 minuto</option>
-						<option value="5">5 minutos</option>
+						<option value="5" selected>5 minutos</option>
 						<option value="30">30 minutos</option>
 						<option value="60">1 hora</option>
 					</select>
@@ -56,10 +56,10 @@
 					<div id="graficoApex" class="apex-container" style="display:none"></div>
 					<canvas id="graficoCotacao"></canvas>
 				</div>
-				<div class="chart-switch">
-					<span>Candlestick</span>
+				<div class="chart-switch mode-candle">
+					<span class="txt-candle">Candlestick</span>
 					<label><input type="radio" name="chartMode" value="candle" checked> <span class="dot"></span></label>
-					<span>Volume</span>
+					<span class="txt-volume">Volume</span>
 					<label><input type="radio" name="chartMode" value="volume"> <span class="dot"></span></label>
 				</div>
 			</div>
