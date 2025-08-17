@@ -384,10 +384,19 @@
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-			simpleCanvasCtx = canvas.getContext('2d');
-			canvas.style.display = '';
-			ajustarCanvas();
-			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			const ctx2d = canvas.getContext('2d');
+			if (window.Chart){
+				canvas.style.display = '';
+				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
+				graficoCotacaoInstance = new Chart(ctx2d, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
+				simpleCanvasCtx = null;
+				window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
+			} else {
+				simpleCanvasCtx = ctx2d;
+				canvas.style.display = '';
+				ajustarCanvas();
+				window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			}
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
