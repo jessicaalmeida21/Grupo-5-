@@ -423,7 +423,7 @@ body.dark-mode #configuracao select {
 
 #graficoCotacao {
   width: 100%;
-  height: 240px;
+  height: 100%;
   display: block;
 }
 .chart-card, .chart-card.compact { max-width: 100% !important; width: 100% !important; flex: 1 1 100% !important; }
