@@ -80,9 +80,12 @@
 			if (window.ChartAnnotation) {
 				Chart.register(window.ChartAnnotation);
 			}
-			// Garante registro de escalas/controladores do Chart.js 3/4 quando usando CDN
 			if (window.Chart && Chart.register) {
-				try { Chart.register(...Object.values(Chart)); } catch(e) { /* no-op */ }
+				try {
+					if (Chart.registerables && Array.isArray(Chart.registerables)) {
+						Chart.register(...Chart.registerables);
+					}
+				} catch(e) { /* no-op */ }
 			}
 		} catch(e) { /* no-op */ }
 	}
@@ -107,6 +110,7 @@
 
 		preencherSelectAtivos();
 		preencherSelectAtivosGrafico();
+		try{ const sel=document.getElementById('resolucaoGrafico'); if(sel){ sel.addEventListener('change', atualizarGraficoCotacao); } }catch(e){}
 		atualizarCarteira();
 		atualizarBook();
 		atualizarExtrato();
@@ -159,7 +163,16 @@
 	function atualizarBook(){ const tbody=document.querySelector('#book tbody'); tbody.innerHTML=''; for(let ativo in ativosB3){ tbody.innerHTML += `<tr><td>${ativo}</td><td>${ativosB3[ativo].toFixed(2)}</td></tr>`; } }
 	function preencherSelectAtivos(){ const select=document.getElementById('ativo'); select.innerHTML=''; for(let ativo in ativosB3){ select.innerHTML += `<option value="${ativo}">${ativo}</option>`; } }
 
-	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `\n      <tr>\n        <td>${o.tipo}</td>\n        <td>${o.ativo}</td>\n        <td>${o.qtd}</td>\n        <td>${o.valor.toFixed(2)}</td>\n        <td>${o.cotacao.toFixed(2)}</td>\n        <td>${o.status}</td>\n        <td>${ o.status==='Aceita' ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>` : '' }</td>\n      </tr>`; }); }
+	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `
+      <tr>
+        <td>${o.tipo}</td>
+        <td>${o.ativo}</td>
+        <td>${o.qtd}</td>
+        <td>${o.valor.toFixed(2)}</td>
+        <td>${o.cotacao.toFixed(2)}</td>
+        <td>${o.status}</td>
+        <td>${ o.status==='Aceita' ? `<button class=\"btn-cancelar\" onclick=\"cancelarOrdem(${o.id})\">Cancelar</button>` : '' }</td>
+      </tr>`; }); }
 	function atualizarExtrato(){ const tbody=document.querySelector('#extrato tbody'); tbody.innerHTML=''; extrato.forEach(e=>{ tbody.innerHTML += `<tr><td>${e.dataHora}</td><td>${e.tipo}</td><td>${e.ativo}</td><td>${e.qtd}</td><td>${e.total.toFixed(2)}</td></tr>`; }); }
 
 	window.cancelarOrdem = function(id){ const ordem=ordens.find(o=>o.id===id && o.status==='Aceita'); if(ordem){ ordem.status='Cancelada'; atualizarOrdens(); document.getElementById('mensagem').innerText='Ordem cancelada.'; } }
@@ -275,7 +288,7 @@
 
 	function agruparOHLC(ativo, stepMin){
 		const pontos = historicoCotacoes[ativo] || [];
-		if(!pontos.length) return { labels: [], candles: [], volumes: [] };
+		if(!pontos.length) return { labels: [], candles: [] };
 		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
 		const map = new Map();
 		const step = Math.max(1, parseInt(stepMin, 10) || 1);
@@ -336,12 +349,10 @@
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
-		// Alternância Candle/Volume (apenas visual, volume sintético)
 		try{
 			const radios = document.querySelectorAll('input[name="chartMode"]');
 			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
 		}catch(e){}
-		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
 		if (window.ApexCharts){
 			const apexDiv = document.getElementById('graficoApex');
 			if (apexDiv){
@@ -365,11 +376,11 @@
 								const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
 								const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
 								return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
-									<div style="font-weight:700">${label}</div>
-									<div>Abertura: <span style="color:#10b981">${o.toFixed(2)}</span></div>
-									<div>Máxima: <span style="color:#10b981">${h.toFixed(2)}</span></div>
-									<div>Mínima: <span style="color:#ef4444">${l.toFixed(2)}</span></div>
-									<div>Fechamento: <span style="color:#10b981">${c.toFixed(2)}</span></div>
+									<div style=\"font-weight:700\">${label}</div>
+									<div>Abertura: <span style=\"color:#10b981\">${o.toFixed(2)}</span></div>
+									<div>Máxima: <span style=\"color:#10b981\">${h.toFixed(2)}</span></div>
+									<div>Mínima: <span style=\"color:#ef4444\">${l.toFixed(2)}</span></div>
+									<div>Fechamento: <span style=\"color:#10b981\">${c.toFixed(2)}</span></div>
 								</div>`;
 							}catch(e){ return ''; }
 						}
@@ -383,19 +394,10 @@
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-			const ctx2d = canvas.getContext('2d');
-			if (window.Chart){
-				canvas.style.display = '';
-				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
-				graficoCotacaoInstance = new Chart(ctx2d, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
-				simpleCanvasCtx = null;
-				window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
-			} else {
-				simpleCanvasCtx = ctx2d;
-				canvas.style.display = '';
-				ajustarCanvas();
-				window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
-			}
+			simpleCanvasCtx = canvas.getContext('2d');
+			canvas.style.display = '';
+			ajustarCanvas();
+			window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
@@ -438,5 +440,4 @@
 	function formatarHoraMinutoSeg(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); const ss=String(d.getSeconds()).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
 	function formatarHoraMinuto(d){ const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0'); return `${hh}:${mm}`; }
 
-// Fecha IIFE principal
 })();

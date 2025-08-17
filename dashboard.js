@@ -80,9 +80,13 @@
 			if (window.ChartAnnotation) {
 				Chart.register(window.ChartAnnotation);
 			}
-			// Garante registro de escalas/controladores do Chart.js 3/4 quando usando CDN
+			// Registro correto dos componentes do Chart.js quando usando UMD
 			if (window.Chart && Chart.register) {
-				try { Chart.register(...Object.values(Chart)); } catch(e) { /* no-op */ }
+				try {
+					if (Chart.registerables && Array.isArray(Chart.registerables)) {
+						Chart.register(...Chart.registerables);
+					}
+				} catch(e) { /* no-op */ }
 			}
 		} catch(e) { /* no-op */ }
 	}
@@ -160,7 +164,16 @@
 	function atualizarBook(){ const tbody=document.querySelector('#book tbody'); tbody.innerHTML=''; for(let ativo in ativosB3){ tbody.innerHTML += `<tr><td>${ativo}</td><td>${ativosB3[ativo].toFixed(2)}</td></tr>`; } }
 	function preencherSelectAtivos(){ const select=document.getElementById('ativo'); select.innerHTML=''; for(let ativo in ativosB3){ select.innerHTML += `<option value="${ativo}">${ativo}</option>`; } }
 
-	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `\n      <tr>\n        <td>${o.tipo}</td>\n        <td>${o.ativo}</td>\n        <td>${o.qtd}</td>\n        <td>${o.valor.toFixed(2)}</td>\n        <td>${o.cotacao.toFixed(2)}</td>\n        <td>${o.status}</td>\n        <td>${ o.status==='Aceita' ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>` : '' }</td>\n      </tr>`; }); }
+	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `
+      <tr>
+        <td>${o.tipo}</td>
+        <td>${o.ativo}</td>
+        <td>${o.qtd}</td>
+        <td>${o.valor.toFixed(2)}</td>
+        <td>${o.cotacao.toFixed(2)}</td>
+        <td>${o.status}</td>
+        <td>${ o.status==='Aceita' ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>` : '' }</td>
+      </tr>`; }); }
 	function atualizarExtrato(){ const tbody=document.querySelector('#extrato tbody'); tbody.innerHTML=''; extrato.forEach(e=>{ tbody.innerHTML += `<tr><td>${e.dataHora}</td><td>${e.tipo}</td><td>${e.ativo}</td><td>${e.qtd}</td><td>${e.total.toFixed(2)}</td></tr>`; }); }
 
 	window.cancelarOrdem = function(id){ const ordem=ordens.find(o=>o.id===id && o.status==='Aceita'); if(ordem){ ordem.status='Cancelada'; atualizarOrdens(); document.getElementById('mensagem').innerText='Ordem cancelada.'; } }
