@@ -294,7 +294,8 @@
 		const labels = keys.map(k=> map.get(k).label);
 		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
 		const volumes = keys.map(k=> map.get(k).v);
-		return { labels, candles, volumes };
+		const times = keys;
+		return { labels, times, candles, volumes };
 	}
 
 	function ajustarCanvas(){
@@ -340,7 +341,12 @@
 		// Alternância Candle/Volume (apenas visual, volume sintético)
 		try{
 			const radios = document.querySelectorAll('input[name="chartMode"]');
-			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
+			radios.forEach(r=> r.addEventListener('change', (e)=>{
+				chartMode = e.target.value;
+				const wrap = document.querySelector('.chart-switch');
+				if (wrap){ wrap.classList.toggle('mode-candle', chartMode==='candle'); wrap.classList.toggle('mode-volume', chartMode==='volume'); }
+				atualizarGraficoCotacao();
+			}));
 		}catch(e){}
 		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
 		if (window.ApexCharts){
@@ -351,12 +357,28 @@
 				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
 				const isDark = document.body.classList.contains('dark-mode');
 				const options = {
-					chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
+					chart: {
+						type: 'candlestick',
+						height: 240,
+						background: '#0b1220',
+						animations: { enabled: false },
+						toolbar: {
+							show: true,
+							tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true }
+						}
+					},
 					theme: { mode: isDark ? 'dark' : 'light' },
+					dataLabels: { enabled: false },
 					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
-					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
+					xaxis: {
+						type: 'category',
+						labels: { style: { colors: '#9ca3af' } },
+						axisBorder: { color: 'rgba(255,255,255,0.12)' },
+						axisTicks: { color: 'rgba(255,255,255,0.12)' },
+						crosshairs: { show: true, position: 'back', stroke: { color: '#9ca3af', width: 1, dashArray: 4 } }
+					},
 					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
-					grid: { borderColor: 'rgba(255,255,255,0.08)' },
+					grid: { borderColor: 'rgba(255,255,255,0.08)', strokeDashArray: 2 },
 					tooltip: {
 						custom: ({seriesIndex, dataPointIndex, w})=>{
 							try{
@@ -403,17 +425,19 @@
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
 		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
-		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], volumes: [] };
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], times: [], candles: [], volumes: [] };
 		const labels = Array.isArray(res.labels) ? res.labels : [];
+		const times = Array.isArray(res.times) ? res.times : [];
 		const candles = Array.isArray(res.candles) ? res.candles : [];
 		const volumes = Array.isArray(res.volumes) ? res.volumes : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
+		const lastTimes = times.length ? times.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
 		const lastVolumes = volumes.length ? volumes.slice(-120) : [];
 		if (apexChart){
 			if (chartMode === 'volume'){
 				const data = lastVolumes.map((v,i)=>({ x: lastLabels[i], y: v }));
-				apexChart.updateOptions({ chart:{ type:'bar' } }, false, true);
+				apexChart.updateOptions({ chart:{ type:'bar' }, colors:['#10b981'], plotOptions:{ bar:{ columnWidth:'60%' } }, dataLabels:{ enabled:false } }, false, true);
 				apexChart.updateSeries([{ data }]);
 			} else {
 				const data = lastCandles.map((c,i)=>({ x: lastLabels[i], y: [c.o, c.h, c.l, c.c] }));
