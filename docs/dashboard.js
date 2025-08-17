@@ -16,6 +16,8 @@
 	const MAX_HISTORY_MS = 24*60*60*1000;
 
 	let priceChart, volumeChart, rsiChart, macdChart;
+	let apexChart = null;
+	let chartMode = 'candle';
 
 	function calcularEMA(valores, period){
 		const k = 2/(period+1);
@@ -273,7 +275,7 @@
 
 	function agruparOHLC(ativo, stepMin){
 		const pontos = historicoCotacoes[ativo] || [];
-		if(!pontos.length) return { labels: [], candles: [] };
+		if(!pontos.length) return { labels: [], candles: [], volumes: [] };
 		const ordenados = [...pontos].sort((a,b)=>a.ts-b.ts);
 		const map = new Map();
 		const step = Math.max(1, parseInt(stepMin, 10) || 1);
@@ -284,13 +286,14 @@
 			const keyDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, flooredMin, 0, 0);
 			const key = keyDate.getTime();
 			const label = step >= 60 ? `${String(hour).padStart(2,'0')}:00` : `${String(hour).padStart(2,'0')}:${String(flooredMin).padStart(2,'0')}`;
-			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, label });
-			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; }
+			if(!map.has(key)) map.set(key, { o:p.preco, h:p.preco, l:p.preco, c:p.preco, v: Math.round(100 + Math.random()*900), label });
+			else { const o = map.get(key); o.c = p.preco; if(p.preco>o.h) o.h=p.preco; if(p.preco<o.l) o.l=p.preco; o.v += Math.round(100 + Math.random()*900); }
 		}
 		const keys = Array.from(map.keys()).sort((a,b)=>a-b);
 		const labels = keys.map(k=> map.get(k).label);
 		const candles = keys.map(k=> { const v = map.get(k); return { o:v.o, h:v.h, l:v.l, c:v.c }; });
-		return { labels, candles };
+		const volumes = keys.map(k=> map.get(k).v);
+		return { labels, candles, volumes };
 	}
 
 	function ajustarCanvas(){
@@ -327,48 +330,103 @@
 		if (!canvas) return;
 		// Garante dimensões visíveis
 		canvas.style.width = '100%';
-		canvas.style.height = '100%';
+		canvas.style.height = '240px';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
 		if (selectRes) selectRes.disabled = false;
 		if (selectRes) selectRes.addEventListener('change', ()=>{ atualizarGraficoCotacao(); });
-		// Preferir Chart.js; fallback Canvas2D (removido ApexCharts para preservar compatibilidade)
-		if (window.Chart){
-			const ctx = canvas.getContext('2d');
-			canvas.style.display = '';
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
-			graficoCotacaoInstance = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
-			simpleCanvasCtx = null;
-			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
+		// Alternância Candle/Volume (apenas visual, volume sintético)
+		try{
+			const radios = document.querySelectorAll('input[name="chartMode"]');
+			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
+		}catch(e){}
+		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
+		if (window.ApexCharts){
+			const apexDiv = document.getElementById('graficoApex');
+			if (apexDiv){
+				apexDiv.style.display = '';
+				canvas.style.display = 'none';
+				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
+				const isDark = document.body.classList.contains('dark-mode');
+				const options = {
+					chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
+					theme: { mode: isDark ? 'dark' : 'light' },
+					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
+					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
+					grid: { borderColor: 'rgba(255,255,255,0.08)' },
+					tooltip: {
+						custom: ({seriesIndex, dataPointIndex, w})=>{
+							try{
+								const label = w.globals.categoryLabels[dataPointIndex] || '';
+								const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
+								const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
+								const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
+								const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
+								return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
+									<div style="font-weight:700">${label}</div>
+									<div>Abertura: <span style="color:#10b981">${o.toFixed(2)}</span></div>
+									<div>Máxima: <span style="color:#10b981">${h.toFixed(2)}</span></div>
+									<div>Mínima: <span style="color:#ef4444">${l.toFixed(2)}</span></div>
+									<div>Fechamento: <span style="color:#10b981">${c.toFixed(2)}</span></div>
+								</div>`;
+							}catch(e){ return ''; }
+						}
+					},
+					series: [{ data: [] }]
+				};
+				if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
+				apexChart = new ApexCharts(apexDiv, options);
+				apexChart.render();
+			}
+			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
 			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
-		simpleCanvasCtx = canvas.getContext('2d');
-			canvas.style.display = '';
-		ajustarCanvas();
-		window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			const ctx2d = canvas.getContext('2d');
+			if (window.Chart){
+				canvas.style.display = '';
+				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
+				graficoCotacaoInstance = new Chart(ctx2d, { type: 'line', data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }});
+				simpleCanvasCtx = null;
+				window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
+			} else {
+				simpleCanvasCtx = ctx2d;
+				canvas.style.display = '';
+				ajustarCanvas();
+				window.addEventListener('resize', ()=>{ ajustarCanvas(); atualizarGraficoCotacao(); });
+			}
 		}
 		seedHistoricoInicial();
 		ativoGraficoAtual = (selectAtivo && selectAtivo.value) || Object.keys(ativosB3||{})[0];
 		atualizarGraficoCotacao();
-		// Segunda atualização pós layout para garantir render em containers flex
 		setTimeout(()=>{ atualizarGraficoCotacao(); }, 100);
 	}
 
 	function atualizarGraficoCotacao(){
-		// Ajustar canvas somente no fallback Canvas2D
 		if (!graficoCotacaoInstance) ajustarCanvas();
 		if(!ativoGraficoAtual){ const keys = Object.keys(ativosB3||{}); if(keys.length) ativoGraficoAtual = keys[0]; }
 		if(!ativoGraficoAtual) return;
 		const selectRes = document.getElementById('resolucaoGrafico');
 		const step = selectRes ? parseInt(selectRes.value, 10) || 1 : 1;
-		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [] };
+		const res = agruparOHLC(ativoGraficoAtual, step) || { labels: [], candles: [], volumes: [] };
 		const labels = Array.isArray(res.labels) ? res.labels : [];
 		const candles = Array.isArray(res.candles) ? res.candles : [];
+		const volumes = Array.isArray(res.volumes) ? res.volumes : [];
 		const lastLabels = labels.length ? labels.slice(-120) : [];
 		const lastCandles = candles.length ? candles.slice(-120) : [];
-		if (graficoCotacaoInstance){
+		const lastVolumes = volumes.length ? volumes.slice(-120) : [];
+		if (apexChart){
+			if (chartMode === 'volume'){
+				const data = lastVolumes.map((v,i)=>({ x: lastLabels[i], y: v }));
+				apexChart.updateOptions({ chart:{ type:'bar' } }, false, true);
+				apexChart.updateSeries([{ data }]);
+			} else {
+				const data = lastCandles.map((c,i)=>({ x: lastLabels[i], y: [c.o, c.h, c.l, c.c] }));
+				apexChart.updateOptions({ chart:{ type:'candlestick' } }, false, true);
+				apexChart.updateSeries([{ data }]);
+			}
+		} else if (graficoCotacaoInstance){
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update('none');
