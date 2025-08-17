@@ -186,7 +186,7 @@
 	let simpleCanvasCtx = null;
 
 	// Desenha candles diários em Canvas2D
-	function desenharCandles(labels, candles){
+	function desenharCandles(labels, candles, showCandles=true, showVolume=true){
 		if(!simpleCanvasCtx) return;
 		const ctx = simpleCanvasCtx;
 		const canvas = ctx.canvas;
@@ -204,6 +204,8 @@
 		const padY = 24;
 		const plotW = Math.max(1, w - padX*2);
 		const plotH = Math.max(1, h - padY*2);
+		const volumeAreaH = showVolume ? Math.floor(plotH * 0.22) : 0;
+		const priceAreaH = plotH - volumeAreaH - (showVolume ? 8 : 0);
 
 		// Eixos X e Y e moldura da área
 		ctx.strokeStyle = axisColor;
@@ -226,7 +228,7 @@
 		if(!isFinite(minP) || !isFinite(maxP)) return;
 		const range = Math.max(1e-6, maxP - minP);
 		const toX = (i)=> padX + (i + 0.5) * (plotW / candles.length);
-		const toY = (v)=> padY + (maxP - v) / range * plotH;
+		const toYPrice = (v)=> padY + (maxP - v) / range * priceAreaH;
 
 		// gridlines horizontais + rótulos de preço
 		ctx.strokeStyle = gridColor;
@@ -236,31 +238,48 @@
 		ctx.textBaseline = 'middle';
 		for(let g=0; g<=4; g++){
 			const yVal = maxP - g*(range/4);
-			const y = toY(yVal);
+			const y = toYPrice(yVal);
 			ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w-padX, y); ctx.stroke();
 			ctx.fillText(yVal.toFixed(2), 6, y);
 		}
 
 		const candleW = Math.max(6, (plotW / candles.length) * 0.6);
-		for(let i=0;i<candles.length;i++){
-			const { o,h:hi,l:lo,c } = candles[i];
-			const up = c >= o;
-			const x = toX(i);
-			const yO = toY(o);
-			const yC = toY(c);
-			const yH = toY(hi);
-			const yL = toY(lo);
-			const bodyTop = Math.min(yO, yC);
-			const bodyH = Math.max(2, Math.abs(yO - yC));
-			// wick
-			ctx.strokeStyle = wickBase;
-			ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
-			// body
-			ctx.fillStyle = up ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)';
-			ctx.strokeStyle = up ? '#16a34a' : '#ef4444';
-			ctx.lineWidth = 1;
-			ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
-			ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
+		if (showCandles){
+			for(let i=0;i<candles.length;i++){
+				const { o,h:hi,l:lo,c } = candles[i];
+				const up = c >= o;
+				const x = toX(i);
+				const yO = toYPrice(o);
+				const yC = toYPrice(c);
+				const yH = toYPrice(hi);
+				const yL = toYPrice(lo);
+				const bodyTop = Math.min(yO, yC);
+				const bodyH = Math.max(2, Math.abs(yO - yC));
+				// wick
+				ctx.strokeStyle = wickBase;
+				ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+				// body
+				ctx.fillStyle = up ? 'rgba(22,163,74,0.8)' : 'rgba(239,68,68,0.8)';
+				ctx.strokeStyle = up ? '#16a34a' : '#ef4444';
+				ctx.lineWidth = 1;
+				ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
+				ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
+			}
+		}
+
+		if (showVolume){
+			const vols = candles.map(c=> Math.max(1, Math.abs(c.c - c.o)*1000));
+			const maxV = Math.max(...vols);
+			const baseY = padY + priceAreaH + 6 + volumeAreaH;
+			for (let i=0;i<candles.length;i++){
+				const v = vols[i];
+				const { o, c } = candles[i];
+				const up = c >= o;
+				const x = toX(i);
+				const bh = Math.max(2, Math.round((v/maxV) * volumeAreaH));
+				ctx.fillStyle = up ? 'rgba(22,163,74,0.5)' : 'rgba(239,68,68,0.5)';
+				ctx.fillRect(x - candleW/2, baseY - bh, candleW, bh);
+			}
 		}
 
 		// rótulos de tempo no eixo X espaçados
@@ -275,12 +294,14 @@
 		}
 
 		// Linha de fechamento sobreposta
-		ctx.strokeStyle = isDark ? 'rgba(59,130,246,0.9)' : 'rgba(37,99,235,0.9)';
-		ctx.lineWidth = 1.5;
-		ctx.beginPath();
-		ctx.moveTo(toX(0), toY(candles[0].c));
-		for(let i=1;i<candles.length;i++) ctx.lineTo(toX(i), toY(candles[i].c));
-		ctx.stroke();
+		if (showCandles){
+			ctx.strokeStyle = isDark ? 'rgba(59,130,246,0.9)' : 'rgba(37,99,235,0.9)';
+			ctx.lineWidth = 1.5;
+			ctx.beginPath();
+			ctx.moveTo(toX(0), toYPrice(candles[0].c));
+			for(let i=1;i<candles.length;i++) ctx.lineTo(toX(i), toYPrice(candles[i].c));
+			ctx.stroke();
+		}
 	}
 
 	function agruparOHLC(ativo, stepMin){
@@ -403,7 +424,12 @@
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update('none');
 		} else if (simpleCanvasCtx){
-			desenharCandles(lastLabels.slice(-60), lastCandles.slice(-60));
+			desenharCandles(
+				lastLabels.slice(-60),
+				lastCandles.slice(-60),
+				document.getElementById('toggleCandle')?.checked!==false,
+				document.getElementById('toggleVolume')?.checked!==false
+			);
 		}
 	}
 	function registrarHistoricoCotacao(){ const agora=Date.now(); for(let ativo in ativosB3){ if(!historicoCotacoes[ativo]) historicoCotacoes[ativo]=[]; historicoCotacoes[ativo].push({ ts:agora, preco:ativosB3[ativo] }); const limite=agora-MAX_HISTORY_MS; while(historicoCotacoes[ativo].length>0 && historicoCotacoes[ativo][0].ts<limite){ historicoCotacoes[ativo].shift(); } } }
