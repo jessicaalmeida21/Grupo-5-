@@ -364,7 +364,7 @@
 			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
 			graficoCotacaoInstance = new Chart(ctx, {
 				type: 'line',
-				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] },
+				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(168,85,247,0.95)', backgroundColor: 'rgba(168,85,247,0.2)', fill: true, tension: 0.4, pointRadius: 2 }] },
 				options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }
 			});
 			setTimeout(function(){ try{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } }catch(e){} }, 50);
@@ -445,6 +445,7 @@
 				apexChart.updateSeries([{ data }]);
 			}
 		} else if (graficoCotacaoInstance){
+			try { graficoCotacaoInstance.data.datasets[0].label = `Cotação ${ativoGraficoAtual} (R$)`; } catch(e) {}
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update('none');
