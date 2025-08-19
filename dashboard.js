@@ -344,7 +344,7 @@
 		if (!canvas) return;
 		// Garante dimensões visíveis
 		canvas.style.width = '100%';
-		canvas.style.height = '240px';
+		canvas.style.height = '100%';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
@@ -355,48 +355,59 @@
 			const radios = document.querySelectorAll('input[name="chartMode"]');
 			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
 		}catch(e){}
-		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
-		if (window.ApexCharts){
-			const apexDiv = document.getElementById('graficoApex');
-			if (apexDiv){
-				apexDiv.style.display = '';
-				canvas.style.display = 'none';
-				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
-				const isDark = document.body.classList.contains('dark-mode');
-				const options = {
-					chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
-					theme: { mode: isDark ? 'dark' : 'light' },
-					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
-					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
-					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
-					grid: { borderColor: 'rgba(255,255,255,0.08)' },
-					tooltip: {
-						custom: ({seriesIndex, dataPointIndex, w})=>{
-							try{
-								const label = w.globals.categoryLabels[dataPointIndex] || '';
-								const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
-								const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
-								const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
-								const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
-								return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
-									<div style=\"font-weight:700\">${label}</div>
-									<div>Abertura: <span style=\"color:#10b981\">${o.toFixed(2)}</span></div>
-									<div>Máxima: <span style=\"color:#10b981\">${h.toFixed(2)}</span></div>
-									<div>Mínima: <span style=\"color:#ef4444\">${l.toFixed(2)}</span></div>
-									<div>Fechamento: <span style=\"color:#10b981\">${c.toFixed(2)}</span></div>
-								</div>`;
-							}catch(e){ return ''; }
-						}
-					},
-					series: [{ data: [] }]
-				};
-				if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
-				apexChart = new ApexCharts(apexDiv, options);
-				apexChart.render();
-			}
+		// Preferir Chart.js; se indisponível, usar Apex se container existir; senão, fallback Canvas2D
+		const apexDiv = document.getElementById('graficoApex');
+		if (window.Chart){
+			const ctx = canvas.getContext('2d');
+			canvas.style.display = '';
+			if (apexDiv) apexDiv.style.display = 'none';
+			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
+			graficoCotacaoInstance = new Chart(ctx, {
+				type: 'line',
+				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(59,130,246,0.9)', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.25, pointRadius: 0 }] },
+				options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+			});
+			setTimeout(function(){ try{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } }catch(e){} }, 50);
+			simpleCanvasCtx = null;
+			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
+		} else if (window.ApexCharts && apexDiv){
+			apexDiv.style.display = '';
+			canvas.style.display = 'none';
+			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
+			const isDark = document.body.classList.contains('dark-mode');
+			const options = {
+				chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
+				theme: { mode: isDark ? 'dark' : 'light' },
+				plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+				xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
+				yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
+				grid: { borderColor: 'rgba(255,255,255,0.08)' },
+				tooltip: {
+					custom: ({seriesIndex, dataPointIndex, w})=>{
+						try{
+							const label = w.globals.categoryLabels[dataPointIndex] || '';
+							const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
+							const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
+							const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
+							const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
+							return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
+								<div style=\"font-weight:700\">${label}</div>
+								<div>Abertura: <span style=\"color:#10b981\">${o.toFixed(2)}</span></div>
+								<div>Máxima: <span style=\"color:#10b981\">${h.toFixed(2)}</span></div>
+								<div>Mínima: <span style=\"color:#ef4444\">${l.toFixed(2)}</span></div>
+								<div>Fechamento: <span style=\"color:#10b981\">${c.toFixed(2)}</span></div>
+							</div>`;
+						}catch(e){ return ''; }
+					}
+				},
+				series: [{ data: [] }]
+			};
+			if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
+			apexChart = new ApexCharts(apexDiv, options);
+			apexChart.render();
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
+			if (apexDiv) apexDiv.style.display = 'none';
 			simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
 			ajustarCanvas();
