@@ -353,7 +353,7 @@
 				const options = {
 					chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
 					theme: { mode: isDark ? 'dark' : 'light' },
-					plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+					plotOptions: { candlestick: { colors: { upward: '#a855f7', downward: '#ef4444' } } },
 					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
 					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
 					grid: { borderColor: 'rgba(255,255,255,0.08)' },
