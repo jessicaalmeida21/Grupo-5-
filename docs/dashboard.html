@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+	<meta charset="UTF-8" />
+	<title>E2E Treinamentos - Home Broker</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css?v=13" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+	<div class="container">
+		<button id="logoutBtn" onclick="logout()">Sair</button>
+		<div class="blue-section">
+			<h2>Bem-vindo <span id="username"></span> | Saldo: R$ <span id="saldo"></span></h2>
+		</div>
+
+		<div class="flex">
+			<div style="flex: 1">
+				<h3>Carteira</h3>
+				<table id="carteira">
+					<thead><tr><th>Ativo</th><th>Quantidade</th></tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<div style="flex: 1">
+				<h3>Book de Ofertas (B3)</h3>
+				<div class="scrollable">
+					<table id="book">
+						<thead><tr><th>Ativo</th><th>Preço Atual (R$)</th></tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<div class="flex">
+			<div class="chart-card compact">
+				<h3 style="font-size:14px;margin:4px 0 6px 0">Cotação em tempo real</h3>
+				<div class="chart-controls">
+					<label for="ativoGrafico">Ativo:</label>
+					<select id="ativoGrafico"></select>
+					<label for="resolucaoGrafico">Tempo Gráfico:</label>
+					<select id="resolucaoGrafico">
+						<option value="1">1 minuto</option>
+						<option value="5" selected>5 minutos</option>
+						<option value="30">30 minutos</option>
+						<option value="60">1 hora</option>
+					</select>
+
+
+				</div>
+				<div class="chart-resp">
+					<div id="graficoApex" class="apex-container" style="display:none"></div>
+					<canvas id="graficoCotacao"></canvas>
+				</div>
+				<div class="chart-switch">
+					<span>Candlestick</span>
+					<label><input type="radio" name="chartMode" value="candle" checked> <span class="dot"></span></label>
+					<span>Volume</span>
+					<label><input type="radio" name="chartMode" value="volume"> <span class="dot"></span></label>
+				</div>
+			</div>
+		</div>
+
+		<h3>Boleta de Compra e Venda</h3>
+		<select id="tipo"><option>Compra</option><option>Venda</option></select>
+		<select id="ativo"></select>
+		<input type="number" id="quantidade" placeholder="Qtd (múltiplos de 100)" />
+		<input type="number" id="valor" placeholder="Valor por lote (R$)" step="0.01" />
+		<button class="btn-azul" onclick="executarOperacao()">Enviar Ordem</button>
+		<div id="mensagem" class="error"></div>
+
+		<h3>Alterar Senha</h3>
+		<label>Nova Senha:
+			<span class="senha-wrapper">
+				<input type="password" id="novaSenha" placeholder="Digite a nova senha" />
+				<span class="toggleSenha" onclick="toggleSenha('novaSenha', this)">👁️</span>
+			</span>
+		</label>
+		<button class="btn-azul" onclick="alterarSenha()">Salvar Nova Senha</button>
+		<div id="senhaMsg" class="success"></div>
+
+		<h3>Extrato de Operações</h3>
+		<table id="extrato">
+			<thead>
+				<tr>
+					<th>Data/Hora</th>
+					<th>Tipo</th>
+					<th>Ativo</th>
+					<th>Qtd</th>
+					<th>Valor Total (R$)</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+
+		<h3>Book de Ordens</h3>
+		<table id="ordens">
+			<thead>
+				<tr><th>Tipo</th><th>Ativo</th><th>Qtd</th><th>Valor</th><th>Cotação</th><th>Status</th><th>Ação</th></tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+
+		<!-- Módulo de Configuração -->
+		<div id="configuracao">
+			<h2>Configurações do Usuário</h2>
+			<div>
+				<label for="layout">Escolha o Layout:</label>
+				<select id="layout">
+					<option value="default">Padrão</option>
+					<option value="dark">Escuro</option>
+					<option value="light">Claro</option>
+				</select>
+				<button class="btn-azul" onclick="alterarLayout()">Alterar Layout</button>
+			</div>
+			<div>
+				<label for="alertaPreco">Ativar Alertas de Preço:</label>
+				<input type="checkbox" id="alertaPreco" />
+				<label for="precoAlvo">Preço Alvo:</label>
+				<input type="number" id="precoAlvo" placeholder="Ex: 30.50" step="0.01" />
+				<button class="btn-azul" onclick="configurarAlertas()">Configurar Alertas</button>
+			</div>
+			<div>
+				<button class="btn-azul" onclick="baixarRelatorio()">Baixar Relatório de Operações (CSV)</button>
+				<button class="btn-azul" onclick="exportarOrdensXLSX()">Exportar Ordens do Dia (XLSX)</button>
+				<button class="btn-azul" onclick="exportarOrdensJSON()">Exportar Ordens do Dia (JSON)</button>
+			</div>
+			<div>
+				<button class="btn-azul" onclick="acessarAnalise()">Acessar Ferramentas de Análise</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="analiseModal" class="hidden modal">
+		<div class="modal-content">
+			<span class="close" onclick="fecharAnalise()">&times;</span>
+			<h2>Ferramentas de Análise</h2>
+			<canvas id="graficoAnalise" width="400" height="200"></canvas>
+		</div>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+	<script src="shared.js?v=13"></script>
+	<script src="dashboard.js?v=13"></script>
+</body>
+</html>
