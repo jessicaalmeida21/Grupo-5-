@@ -57,22 +57,28 @@
 				<h2 style="margin-top:10px">Cadastrar nova conta</h2>
 				<label>Nome</label>
 				<input type="text" id="nomeCadastro" placeholder="Seu nome" />
+				<div id="errNomeCadastro" class="field-error"></div>
 				<label>CPF</label>
 				<input type="text" id="cpfCadastro" placeholder="00000000000" />
+				<div id="errCpfCadastro" class="field-error"></div>
 				<label>Whatsapp</label>
 				<input type="text" id="whatsappCadastro" placeholder="90000000000" />
+				<div id="errWhatsappCadastro" class="field-error"></div>
 				<label>Email</label>
 				<input type="email" id="emailCadastro" placeholder="voce@exemplo.com" />
+				<div id="errEmailCadastro" class="field-error"></div>
 				<label>Senha</label>
 				<span class="senha-wrapper" style="width:100%">
 					<input type="password" id="senhaCadastro" placeholder="Senha" style="width:100%" />
 					<span class="toggleSenha" onclick="toggleSenha('senhaCadastro', this)">👁️</span>
 				</span>
+				<div id="errSenhaCadastro" class="field-error"></div>
 				<label>Confirme a Senha</label>
 				<span class="senha-wrapper" style="width:100%">
 					<input type="password" id="confirmarSenhaCadastro" placeholder="Confirme a senha" style="width:100%" />
 					<span class="toggleSenha" onclick="toggleSenha('confirmarSenhaCadastro', this)">👁️</span>
 				</span>
+				<div id="errConfirmarSenhaCadastro" class="field-error"></div>
 				<div class="login-actions">
 					<button class="btn-primary" onclick="cadastrarUsuario()">Cadastrar</button>
 					<div id="cadastroMsg" class="success"></div>
