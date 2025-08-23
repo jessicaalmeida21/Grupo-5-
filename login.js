@@ -16,6 +16,44 @@
 		return out;
 	}
 
+	// Validation helpers for cadastro
+	function normalizarCPF(cpf){ return cpf.replace(/\D+/g,'').slice(0,11); }
+	function validarCPF(cpf){ return normalizarCPF(cpf).length === 11; }
+	function normalizarWhatsApp(valor){ return valor.replace(/\D+/g,'').slice(0,11); }
+	function validarWhatsApp(valor){ return normalizarWhatsApp(valor).length === 11; }
+	function validarNome(nome){
+		const trimmed = nome.trim();
+		if (!trimmed) return false;
+		// Allow letters (including accents) and spaces only, at least 2 letters
+		if (!/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/.test(trimmed)) return false;
+		const letters = (trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[A-Za-z]/g) || []).length;
+		return letters >= 2;
+	}
+	function validarEmail(email){
+		const e = email.trim();
+		// Basic email pattern
+		const ok = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(e);
+		if (!ok) return false;
+		const domain = e.split('@')[1].toLowerCase();
+		// Block repeated TLD like .com.com
+		if (domain.includes('.com.com')) return false;
+		return true;
+	}
+	function setFieldError(inputEl, message){
+		if (!inputEl) return;
+		let span = inputEl.nextElementSibling;
+		if (!span || !span.classList || !span.classList.contains('field-error')){
+			span = document.createElement('div');
+			span.className = 'field-error error login-meta';
+			inputEl.insertAdjacentElement('afterend', span);
+		}
+		span.innerText = message || '';
+		span.style.display = message ? 'block' : 'none';
+	}
+	function getBtnCadastrar(){
+		return document.querySelector('button.btn-primary[onclick="cadastrarUsuario()"]');
+	}
+
 	document.addEventListener('DOMContentLoaded', function(){
 		document.body.classList.add('login-hero');
 		// Máscara e validação
@@ -40,6 +78,41 @@
 		cpfInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ if(!btn.disabled) login(); }});
 		senhaInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ if(!btn.disabled) login(); }});
 		updateState();
+
+		// Cadastro: refs
+		const nomeCadastro = document.getElementById('nomeCadastro');
+		const cpfCadastro = document.getElementById('cpfCadastro');
+		const whatsappCadastro = document.getElementById('whatsappCadastro');
+		const emailCadastro = document.getElementById('emailCadastro');
+		const senhaCadastro = document.getElementById('senhaCadastro');
+		const confirmarSenhaCadastro = document.getElementById('confirmarSenhaCadastro');
+
+		function updateCadastroState(){
+			const btnCadastrar = getBtnCadastrar();
+			let allValid = true;
+			// Nome
+			if (!validarNome(nomeCadastro.value)) { setFieldError(nomeCadastro, 'Nome deve ter ao menos 2 letras.'); allValid = false; } else { setFieldError(nomeCadastro, ''); }
+			// CPF
+			const cpfOkCadastro = validarCPF(cpfCadastro.value);
+			if (!cpfOkCadastro) { setFieldError(cpfCadastro, 'CPF deve conter 11 dígitos numéricos.'); allValid = false; } else { setFieldError(cpfCadastro, ''); }
+			// WhatsApp
+			const whatsOk = validarWhatsApp(whatsappCadastro.value);
+			if (!whatsOk) { setFieldError(whatsappCadastro, 'WhatsApp deve ter 11 dígitos numéricos.'); allValid = false; } else { setFieldError(whatsappCadastro, ''); }
+			// Email
+			if (!validarEmail(emailCadastro.value)) { setFieldError(emailCadastro, 'Informe um e-mail válido.'); allValid = false; } else { setFieldError(emailCadastro, ''); }
+			// Senhas
+			if (!senhaCadastro.value || !confirmarSenhaCadastro.value || senhaCadastro.value !== confirmarSenhaCadastro.value) { setFieldError(confirmarSenhaCadastro, 'As senhas devem coincidir.'); allValid = false; } else { setFieldError(confirmarSenhaCadastro, ''); }
+			if (btnCadastrar){ btnCadastrar.disabled = !allValid; btnCadastrar.classList.toggle('disabled', btnCadastrar.disabled); }
+		}
+
+		if (cpfCadastro){
+			cpfCadastro.addEventListener('input', ()=>{ cpfCadastro.value = aplicarMascaraCPF(cpfCadastro.value); updateCadastroState(); });
+		}
+		if (whatsappCadastro){
+			whatsappCadastro.addEventListener('input', ()=>{ whatsappCadastro.value = normalizarWhatsApp(whatsappCadastro.value); updateCadastroState(); });
+		}
+		[nomeCadastro,emailCadastro,senhaCadastro,confirmarSenhaCadastro].forEach(el=>{ if(el){ el.addEventListener('input', updateCadastroState); }});
+		updateCadastroState();
 	});
 
 	function login(){
@@ -79,27 +152,42 @@
 	window.enviarRecuperacao = enviarRecuperacao;
 
 	function cadastrarUsuario(){
-		const nome = document.getElementById('nomeCadastro').value.trim();
-		const cpf = document.getElementById('cpfCadastro').value.trim();
-		const whatsapp = document.getElementById('whatsappCadastro').value.trim();
-		const email = document.getElementById('emailCadastro').value.trim();
-		const senha = document.getElementById('senhaCadastro').value;
-		const senha2 = document.getElementById('confirmarSenhaCadastro').value;
+		const nomeEl = document.getElementById('nomeCadastro');
+		const cpfEl = document.getElementById('cpfCadastro');
+		const whatsappEl = document.getElementById('whatsappCadastro');
+		const emailEl = document.getElementById('emailCadastro');
+		const senhaEl = document.getElementById('senhaCadastro');
+		const confirmarSenhaEl = document.getElementById('confirmarSenhaCadastro');
+		const nome = (nomeEl?.value||'').trim();
+		const cpfRaw = (cpfEl?.value||'').trim();
+		const cpfDigits = normalizarCPF(cpfRaw);
+		const whatsappDigits = normalizarWhatsApp((whatsappEl?.value||'').trim());
+		const email = (emailEl?.value||'').trim();
+		const senha = senhaEl?.value||'';
+		const senha2 = confirmarSenhaEl?.value||'';
 		const msg = document.getElementById('cadastroMsg');
 		msg.classList.remove('error'); msg.classList.add('success'); msg.innerText='';
-		if (!nome || !cpf || !whatsapp || !email || !senha || !senha2){ msg.classList.replace('success','error'); msg.innerText='Preencha todos os campos.'; return; }
+
+		let valido = true;
+		if (!validarNome(nome)){ setFieldError(nomeEl, 'Nome deve ter ao menos 2 letras.'); valido=false; }
+		if (!validarCPF(cpfRaw)){ setFieldError(cpfEl, 'CPF deve conter 11 dígitos numéricos.'); valido=false; }
+		if (!validarWhatsApp(whatsappDigits)){ setFieldError(whatsappEl, 'WhatsApp deve ter 11 dígitos numéricos.'); valido=false; }
+		if (!validarEmail(email)){ setFieldError(emailEl, 'Informe um e-mail válido.'); valido=false; }
+		if (!senha || senha !== senha2){ setFieldError(confirmarSenhaEl, 'As senhas devem coincidir.'); valido=false; }
+		if (!valido){ msg.classList.replace('success','error'); msg.innerText='Corrija os campos destacados.'; return; }
+
 		let usuarios = HBShared.getUsuarios();
-		if (usuarios[cpf]){ msg.classList.replace('success','error'); msg.innerText='CPF já cadastrado.'; return; }
-		if (senha !== senha2){ msg.classList.replace('success','error'); msg.innerText='As senhas não conferem.'; return; }
-		if (!/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)){ msg.classList.replace('success','error'); msg.innerText='Email inválido.'; return; }
+		if (usuarios[cpfDigits] || usuarios[cpfRaw]){ msg.classList.replace('success','error'); msg.innerText='CPF já cadastrado.'; return; }
+
 		let contas = HBShared.getContas();
 		const contaId = `U${Date.now()}`;
 		contas[contaId] = { nome, saldo: 50000, carteira: {} };
-		usuarios[cpf] = { senha, conta: contaId, nome, whatsapp, email };
+		usuarios[cpfDigits] = { senha, conta: contaId, nome, whatsapp: whatsappDigits, email };
 		HBShared.setContas(contas);
 		HBShared.setUsuarios(usuarios);
 		msg.innerText = 'Conta cadastrada com sucesso! Você já pode fazer login.';
-		['nomeCadastro','cpfCadastro','whatsappCadastro','emailCadastro','senhaCadastro','confirmarSenhaCadastro'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+		[nomeEl, cpfEl, whatsappEl, emailEl, senhaEl, confirmarSenhaEl].forEach(el=>{ if(el) el.value=''; setFieldError(el, ''); });
+		const btnCadastrar = getBtnCadastrar(); if(btnCadastrar){ btnCadastrar.disabled = true; btnCadastrar.classList.add('disabled'); }
 	}
 	window.cadastrarUsuario = cadastrarUsuario;
 })();
