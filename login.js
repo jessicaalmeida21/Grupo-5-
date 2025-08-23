@@ -75,7 +75,7 @@
 		if (cpfCad){
 			cpfCad.addEventListener('input', ()=>{
 				const digits = normalizeCPF(cpfCad.value);
-				cpfCad.value = digits;
+				cpfCad.value = aplicarMascaraCPF(digits);
 				const ok = validateCPF(digits);
 				setFieldError('errCpfCadastro', (!ok && digits.length>0) ? 'CPF deve ter 11 dígitos numéricos.' : '');
 			});
