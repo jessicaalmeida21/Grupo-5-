@@ -138,11 +138,10 @@
 	window.alterarLayout = alterarLayout;
 	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } }
 
-	let ativosAlertaSelecionados = new Set();
+	let ativoAlertaSelecionado = null;
 	let ultimoDisparoPorAtivo = {};
-	function preencherSelectAtivosAlerta(){ const sel=document.getElementById('ativosAlerta'); if(!sel) return; sel.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; opt.textContent=ativo; sel.appendChild(opt); } }
-	function obterSelecionadosAtivosAlerta(){ const sel=document.getElementById('ativosAlerta'); if(!sel) return []; return Array.from(sel.selectedOptions).map(o=>o.value); }
-	function configurarAlertas(){ const checked=document.getElementById('alertaPreco').checked; const precoInput=parseFloat(document.getElementById('precoAlvo').value); const selecionados=obterSelecionadosAtivosAlerta(); if(checked){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } if(selecionados.length===0){ alert('Selecione ao menos um ativo para monitorar.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } alertaAtivo=true; precoAlvo=precoInput; ativosAlertaSelecionados=new Set(selecionados); ultimoDisparoPorAtivo={}; alert(`Alertas de preço ativados para ${selecionados.join(', ')} em preço alvo R$ ${precoAlvo.toFixed(2)}.`); } else { alertaAtivo=false; precoAlvo=null; ativosAlertaSelecionados.clear(); ultimoDisparoPorAtivo={}; alert('Alertas de preço desativados.'); } }
+	function preencherSelectAtivosAlerta(){ const sel=document.getElementById('ativoAlerta'); if(!sel) return; sel.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; opt.textContent=ativo; sel.appendChild(opt); } }
+	function configurarAlertas(){ const checked=document.getElementById('alertaPreco').checked; const precoInput=parseFloat(document.getElementById('precoAlvo').value); const sel=document.getElementById('ativoAlerta'); const escolhido=sel?sel.value:null; if(checked){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } if(!escolhido){ alert('Selecione um ativo para monitorar.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } alertaAtivo=true; precoAlvo=precoInput; ativoAlertaSelecionado=escolhido; ultimoDisparoPorAtivo={}; alert(`Alerta de preço ativado para ${ativoAlertaSelecionado} em R$ ${precoAlvo.toFixed(2)}.`); } else { alertaAtivo=false; precoAlvo=null; ativoAlertaSelecionado=null; ultimoDisparoPorAtivo={}; alert('Alertas de preço desativados.'); } }
 	window.configurarAlertas = configurarAlertas;
 
 	function baixarRelatorio(){ if(extrato.length===0){ alert('Nenhuma operação executada registrada no extrato.'); return; } let csv = 'Data/Hora,Tipo,Ativo,Quantidade,Valor Total (R$)\n'; extrato.forEach(e=>{ csv += `"${e.dataHora}","${e.tipo}","${e.ativo}",${e.qtd},${e.total.toFixed(2)}\n`; }); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`extrato_${usuarioAtual.nome.replace(/\s+/g,'_')}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); alert('Relatório de operações baixado.'); }
@@ -189,16 +188,18 @@
 
 	setInterval(()=>{ if(!usuarioAtual) return; for(let ativo in ativosB3){ const variacao=(Math.random()-0.5)*0.1; ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2)); if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01; } registrarHistoricoCotacao(); ordens.forEach(o=>{ if(o.status==='Aceita'){ const precoAtual=ativosB3[o.ativo]; if((o.tipo==='Compra' && precoAtual<=o.valor) || (o.tipo==='Venda' && precoAtual>=o.valor)){ aplicarOrdem(o); o.status='Executada'; o.dataHora=new Date().toLocaleString(); o.timestamp=Date.now(); extrato.unshift(o); } } });
 		// Disparo de alertas independente das ordens
-		if(alertaAtivo && precoAlvo!==null && ativosAlertaSelecionados && ativosAlertaSelecionados.size>0){
+		if(alertaAtivo && precoAlvo!==null && ativoAlertaSelecionado){
 			const agoraTs = Date.now();
 			const intervaloMinMs = 60*1000;
-			ativosAlertaSelecionados.forEach(ativo=>{
-				const precoAtual = ativosB3[ativo];
-				if(typeof precoAtual !== 'number') return;
+			const ativo = ativoAlertaSelecionado;
+			const precoAtual = ativosB3[ativo];
+			if(typeof precoAtual === 'number'){
 				const ultimo = ultimoDisparoPorAtivo[ativo]||0;
-				if(agoraTs - ultimo < intervaloMinMs) return;
-				if(precoAtual>=precoAlvo){ ultimoDisparoPorAtivo[ativo]=agoraTs; alert(`Alerta de preço: ${ativo} atingiu R$ ${precoAtual.toFixed(2)} (alvo R$ ${precoAlvo.toFixed(2)})`); }
-			});
+				if(agoraTs - ultimo >= intervaloMinMs && precoAtual>=precoAlvo){
+					ultimoDisparoPorAtivo[ativo]=agoraTs;
+					alert(`Alerta de preço: ${ativo} atingiu R$ ${precoAtual.toFixed(2)} (alvo R$ ${precoAlvo.toFixed(2)})`);
+				}
+			}
 		}
 		atualizarBook(); atualizarOrdens(); atualizarCarteira(); atualizarExtrato(); atualizarGraficoCotacao(); }, 10000);
 
