@@ -6,7 +6,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="style.css?v=8" />
+	<link rel="stylesheet" href="style.css?v=13" />
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
@@ -45,7 +45,7 @@
 					<label for="resolucaoGrafico">Tempo Gráfico:</label>
 					<select id="resolucaoGrafico">
 						<option value="1">1 minuto</option>
-						<option value="5">5 minutos</option>
+						<option value="5" selected>5 minutos</option>
 						<option value="30">30 minutos</option>
 						<option value="60">1 hora</option>
 					</select>
@@ -111,6 +111,11 @@
 				<label for="precoAlvo">Preço Alvo:</label>
 				<input type="number" id="precoAlvo" placeholder="Ex: 30.50" step="0.01" />
 				<button class="btn-azul" onclick="configurarAlertas()">Configurar Alertas</button>
+				<div style="margin-top:6px">
+					<label for="ativoAlertaNome">Ativo para monitorar:</label>
+					<input type="text" id="ativoAlertaNome" list="ativosSugestoes" placeholder="Ex: PETR4" style="min-width:160px" />
+					<datalist id="ativosSugestoes"></datalist>
+				</div>
 			</div>
 			<div>
 				<button class="btn-azul" onclick="baixarRelatorio()">Baixar Relatório de Operações (CSV)</button>
@@ -132,8 +137,8 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-	<script src="shared.js?v=8"></script>
-	<script src="dashboard.js?v=8"></script>
+	<script src="shared.js?v=13"></script>
+	<script src="dashboard.js?v=13"></script>
 </body>
 </html>
 

@@ -80,9 +80,13 @@
 			if (window.ChartAnnotation) {
 				Chart.register(window.ChartAnnotation);
 			}
-			// Garante registro de escalas/controladores do Chart.js 3/4 quando usando CDN
+			// Registro correto dos componentes do Chart.js quando usando UMD
 			if (window.Chart && Chart.register) {
-				try { Chart.register(...Object.values(Chart)); } catch(e) { /* no-op */ }
+				try {
+					if (Chart.registerables && Array.isArray(Chart.registerables)) {
+						Chart.register(...Chart.registerables);
+					}
+				} catch(e) { /* no-op */ }
 			}
 		} catch(e) { /* no-op */ }
 	}
@@ -107,6 +111,7 @@
 
 		preencherSelectAtivos();
 		preencherSelectAtivosGrafico();
+		preencherSelectAtivosAlerta();
 		try{ const sel=document.getElementById('resolucaoGrafico'); if(sel){ sel.addEventListener('change', atualizarGraficoCotacao); } }catch(e){}
 		atualizarCarteira();
 		atualizarBook();
@@ -133,7 +138,10 @@
 	window.alterarLayout = alterarLayout;
 	function aplicarLayout(layout){ if(layout==='dark'){ document.body.classList.add('dark-mode'); document.body.style.backgroundColor=''; document.body.style.color=''; } else { document.body.classList.remove('dark-mode'); if(layout==='light'){ document.body.style.backgroundColor='#fff'; document.body.style.color='#000'; } else { document.body.style.backgroundColor='#f4f6f9'; document.body.style.color='#000'; } } }
 
-	function configurarAlertas(){ alertaAtivo = document.getElementById('alertaPreco').checked; const precoInput = parseFloat(document.getElementById('precoAlvo').value); if(alertaAtivo){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } precoAlvo = precoInput; alert(`Alertas de preço ativados para valores >= R$${precoAlvo.toFixed(2)}.`); } else { precoAlvo = null; alert('Alertas de preço desativados.'); } }
+	let ativoAlertaSelecionado = null;
+	let ultimoDisparoPorAtivo = {};
+function preencherSelectAtivosAlerta(){ const dl=document.getElementById('ativosSugestoes'); if(!dl) return; dl.innerHTML=''; for(let ativo in ativosB3){ const opt=document.createElement('option'); opt.value=ativo; dl.appendChild(opt); } }
+function configurarAlertas(){ const checked=document.getElementById('alertaPreco').checked; const precoInput=parseFloat(document.getElementById('precoAlvo').value); const input=document.getElementById('ativoAlertaNome'); const escolhido=input?input.value.trim().toUpperCase():null; if(checked){ if(isNaN(precoInput)||precoInput<=0){ alert('Por favor, informe um preço alvo válido para ativar os alertas.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } if(!escolhido || !(escolhido in ativosB3)){ alert('Digite um ativo válido (ex: PETR4) que exista no book.'); document.getElementById('alertaPreco').checked=false; alertaAtivo=false; return; } alertaAtivo=true; precoAlvo=precoInput; ativoAlertaSelecionado=escolhido; ultimoDisparoPorAtivo={}; alert(`Alerta de preço ativado para ${ativoAlertaSelecionado} em R$ ${precoAlvo.toFixed(2)}.`); } else { alertaAtivo=false; precoAlvo=null; ativoAlertaSelecionado=null; ultimoDisparoPorAtivo={}; alert('Alertas de preço desativados.'); } }
 	window.configurarAlertas = configurarAlertas;
 
 	function baixarRelatorio(){ if(extrato.length===0){ alert('Nenhuma operação executada registrada no extrato.'); return; } let csv = 'Data/Hora,Tipo,Ativo,Quantidade,Valor Total (R$)\n'; extrato.forEach(e=>{ csv += `"${e.dataHora}","${e.tipo}","${e.ativo}",${e.qtd},${e.total.toFixed(2)}\n`; }); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`extrato_${usuarioAtual.nome.replace(/\s+/g,'_')}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); alert('Relatório de operações baixado.'); }
@@ -160,7 +168,16 @@
 	function atualizarBook(){ const tbody=document.querySelector('#book tbody'); tbody.innerHTML=''; for(let ativo in ativosB3){ tbody.innerHTML += `<tr><td>${ativo}</td><td>${ativosB3[ativo].toFixed(2)}</td></tr>`; } }
 	function preencherSelectAtivos(){ const select=document.getElementById('ativo'); select.innerHTML=''; for(let ativo in ativosB3){ select.innerHTML += `<option value="${ativo}">${ativo}</option>`; } }
 
-	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `\n      <tr>\n        <td>${o.tipo}</td>\n        <td>${o.ativo}</td>\n        <td>${o.qtd}</td>\n        <td>${o.valor.toFixed(2)}</td>\n        <td>${o.cotacao.toFixed(2)}</td>\n        <td>${o.status}</td>\n        <td>${ o.status==='Aceita' ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>` : '' }</td>\n      </tr>`; }); }
+	function atualizarOrdens(){ const tbody=document.querySelector('#ordens tbody'); tbody.innerHTML=''; ordens.forEach(o=>{ tbody.innerHTML += `
+      <tr>
+        <td>${o.tipo}</td>
+        <td>${o.ativo}</td>
+        <td>${o.qtd}</td>
+        <td>${o.valor.toFixed(2)}</td>
+        <td>${o.cotacao.toFixed(2)}</td>
+        <td>${o.status}</td>
+        <td>${ o.status==='Aceita' ? `<button class="btn-cancelar" onclick="cancelarOrdem(${o.id})">Cancelar</button>` : '' }</td>
+      </tr>`; }); }
 	function atualizarExtrato(){ const tbody=document.querySelector('#extrato tbody'); tbody.innerHTML=''; extrato.forEach(e=>{ tbody.innerHTML += `<tr><td>${e.dataHora}</td><td>${e.tipo}</td><td>${e.ativo}</td><td>${e.qtd}</td><td>${e.total.toFixed(2)}</td></tr>`; }); }
 
 	window.cancelarOrdem = function(id){ const ordem=ordens.find(o=>o.id===id && o.status==='Aceita'); if(ordem){ ordem.status='Cancelada'; atualizarOrdens(); document.getElementById('mensagem').innerText='Ordem cancelada.'; } }
@@ -169,7 +186,22 @@
 
 	function aplicarOrdem(o){ if(o.tipo==='Compra'){ usuarioAtual.saldo -= o.total; usuarioAtual.carteira[o.ativo] = (usuarioAtual.carteira[o.ativo]||0)+o.qtd; } else { usuarioAtual.saldo += o.total; usuarioAtual.carteira[o.ativo] -= o.qtd; if(usuarioAtual.carteira[o.ativo]<=0) delete usuarioAtual.carteira[o.ativo]; } }
 
-	setInterval(()=>{ if(!usuarioAtual) return; for(let ativo in ativosB3){ const variacao=(Math.random()-0.5)*0.1; ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2)); if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01; } registrarHistoricoCotacao(); ordens.forEach(o=>{ if(o.status==='Aceita'){ const precoAtual=ativosB3[o.ativo]; if((o.tipo==='Compra' && precoAtual<=o.valor) || (o.tipo==='Venda' && precoAtual>=o.valor)){ aplicarOrdem(o); o.status='Executada'; o.dataHora=new Date().toLocaleString(); o.timestamp=Date.now(); extrato.unshift(o); if(alertaAtivo && precoAlvo!==null){ if((o.tipo==='Compra' && precoAtual<=precoAlvo) || (o.tipo==='Venda' && precoAtual>=precoAlvo)){ alert(`Alerta de preço: ativo ${o.ativo} atingiu preço alvo de R$${precoAlvo.toFixed(2)}.`); } } } } }); atualizarBook(); atualizarOrdens(); atualizarCarteira(); atualizarExtrato(); atualizarGraficoCotacao(); }, 10000);
+	setInterval(()=>{ if(!usuarioAtual) return; for(let ativo in ativosB3){ const variacao=(Math.random()-0.5)*0.1; ativosB3[ativo] = parseFloat((ativosB3[ativo] + variacao).toFixed(2)); if(ativosB3[ativo] < 0.01) ativosB3[ativo] = 0.01; } registrarHistoricoCotacao(); ordens.forEach(o=>{ if(o.status==='Aceita'){ const precoAtual=ativosB3[o.ativo]; if((o.tipo==='Compra' && precoAtual<=o.valor) || (o.tipo==='Venda' && precoAtual>=o.valor)){ aplicarOrdem(o); o.status='Executada'; o.dataHora=new Date().toLocaleString(); o.timestamp=Date.now(); extrato.unshift(o); if(alertaAtivo && precoAlvo!==null){ if((o.tipo==='Compra' && precoAtual<=precoAlvo) || (o.tipo==='Venda' && precoAtual>=precoAlvo)){ alert(`Alerta de preço: ativo ${o.ativo} atingiu preço alvo de R$${precoAlvo.toFixed(2)}.`); } } } } });
+		// Disparo de alertas independente das ordens
+		if(alertaAtivo && precoAlvo!==null && ativoAlertaSelecionado){
+			const agoraTs = Date.now();
+			const intervaloMinMs = 60*1000; // 1 min entre alertas do mesmo ativo
+			const ativo = ativoAlertaSelecionado;
+			const precoAtual = ativosB3[ativo];
+			if(typeof precoAtual === 'number'){
+				const ultimo = ultimoDisparoPorAtivo[ativo]||0;
+				if(agoraTs - ultimo >= intervaloMinMs && precoAtual>=precoAlvo){
+					ultimoDisparoPorAtivo[ativo] = agoraTs;
+					alert(`Alerta de preço: ${ativo} atingiu R$ ${precoAtual.toFixed(2)} (alvo R$ ${precoAlvo.toFixed(2)})`);
+				}
+			}
+		}
+	atualizarBook(); atualizarOrdens(); atualizarCarteira(); atualizarExtrato(); atualizarGraficoCotacao(); }, 10000);
 
 	window.alterarSenha = function(){ const novaSenha=document.getElementById('novaSenha').value.trim(); if(novaSenha.length<3){ document.getElementById('senhaMsg').innerText = 'A nova senha deve ter pelo menos 3 caracteres.'; return; } const cpf = usuarioAtual?.cpf; if(!cpf){ document.getElementById('senhaMsg').innerText='Erro: usuário não autenticado.'; return; } usuarios[cpf].senha = novaSenha; HBShared.setUsuarios(usuarios); document.getElementById('senhaMsg').innerText='Senha alterada com sucesso!'; document.getElementById('novaSenha').value=''; }
 
@@ -331,7 +363,7 @@
 		if (!canvas) return;
 		// Garante dimensões visíveis
 		canvas.style.width = '100%';
-		canvas.style.height = '240px';
+		canvas.style.height = '100%';
 		const selectAtivo = document.getElementById('ativoGrafico');
 		if (selectAtivo) selectAtivo.addEventListener('change', () => { ativoGraficoAtual = selectAtivo.value; atualizarGraficoCotacao(); });
 		const selectRes = document.getElementById('resolucaoGrafico');
@@ -342,48 +374,59 @@
 			const radios = document.querySelectorAll('input[name="chartMode"]');
 			radios.forEach(r=> r.addEventListener('change', (e)=>{ chartMode = e.target.value; atualizarGraficoCotacao(); }));
 		}catch(e){}
-		// Forçar ApexCharts (candlestick) para ficar igual ao design; fallback apenas para Canvas2D
-		if (window.ApexCharts){
-			const apexDiv = document.getElementById('graficoApex');
-			if (apexDiv){
-				apexDiv.style.display = '';
-				canvas.style.display = 'none';
-				if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
-				const isDark = document.body.classList.contains('dark-mode');
-				const options = {
-					chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
-					theme: { mode: isDark ? 'dark' : 'light' },
-					plotOptions: { candlestick: { colors: { upward: '#a855f7', downward: '#ef4444' } } },
-					xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
-					yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
-					grid: { borderColor: 'rgba(255,255,255,0.08)' },
-					tooltip: {
-						custom: ({seriesIndex, dataPointIndex, w})=>{
-							try{
-								const label = w.globals.categoryLabels[dataPointIndex] || '';
-								const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
-								const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
-								const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
-								const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
-								return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
-									<div style=\"font-weight:700\">${label}</div>
-									<div>Abertura: <span style=\"color:#10b981\">${o.toFixed(2)}</span></div>
-									<div>Máxima: <span style=\"color:#10b981\">${h.toFixed(2)}</span></div>
-									<div>Mínima: <span style=\"color:#ef4444\">${l.toFixed(2)}</span></div>
-									<div>Fechamento: <span style=\"color:#10b981\">${c.toFixed(2)}</span></div>
-								</div>`;
-							}catch(e){ return ''; }
-						}
-					},
-					series: [{ data: [] }]
-				};
-				if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
-				apexChart = new ApexCharts(apexDiv, options);
-				apexChart.render();
-			}
+		// Preferir Chart.js; se indisponível, usar Apex se container existir; senão, fallback Canvas2D
+		const apexDiv = document.getElementById('graficoApex');
+		if (window.Chart){
+			const ctx = canvas.getContext('2d');
+			canvas.style.display = '';
+			if (apexDiv) apexDiv.style.display = 'none';
+			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} }
+			graficoCotacaoInstance = new Chart(ctx, {
+				type: 'line',
+				data: { labels: [], datasets: [{ label: 'Cotação (R$)', data: [], borderColor: 'rgba(168,85,247,0.95)', backgroundColor: 'rgba(168,85,247,0.2)', fill: true, tension: 0.4, pointRadius: 2 }] },
+				options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.08)' } }, x: { ticks: { maxRotation: 0 }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+			});
+			setTimeout(function(){ try{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } }catch(e){} }, 50);
+			simpleCanvasCtx = null;
+			window.addEventListener('resize', ()=>{ if(graficoCotacaoInstance){ graficoCotacaoInstance.resize(); } atualizarGraficoCotacao(); });
+		} else if (window.ApexCharts && apexDiv){
+			apexDiv.style.display = '';
+			canvas.style.display = 'none';
+			if (graficoCotacaoInstance) { try{ graficoCotacaoInstance.destroy(); }catch(e){} graficoCotacaoInstance = null; }
+			const isDark = document.body.classList.contains('dark-mode');
+			const options = {
+				chart: { type: 'candlestick', height: 240, background: '#0b1220', animations: {enabled:false}, toolbar:{ show:true } },
+				theme: { mode: isDark ? 'dark' : 'light' },
+				plotOptions: { candlestick: { colors: { upward: '#16a34a', downward: '#ef4444' } } },
+				xaxis: { type: 'category', labels:{ style:{ colors: '#9ca3af' } }, axisBorder:{ color: 'rgba(255,255,255,0.12)' }, axisTicks:{ color:'rgba(255,255,255,0.12)' } },
+				yaxis: { tooltip: { enabled: true }, labels: { formatter: (v)=> (v||0).toFixed(2), style:{ colors:'#9ca3af' } } },
+				grid: { borderColor: 'rgba(255,255,255,0.08)' },
+				tooltip: {
+					custom: ({seriesIndex, dataPointIndex, w})=>{
+						try{
+							const label = w.globals.categoryLabels[dataPointIndex] || '';
+							const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex];
+							const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex];
+							const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex];
+							const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex];
+							return `<div style="padding:8px 10px;background:#111827;color:#e5e7eb;border-radius:8px;font-family:Inter,Arial,sans-serif;">
+								<div style=\"font-weight:700\">${label}</div>
+								<div>Abertura: <span style=\"color:#10b981\">${o.toFixed(2)}</span></div>
+								<div>Máxima: <span style=\"color:#10b981\">${h.toFixed(2)}</span></div>
+								<div>Mínima: <span style=\"color:#ef4444\">${l.toFixed(2)}</span></div>
+								<div>Fechamento: <span style=\"color:#10b981\">${c.toFixed(2)}</span></div>
+							</div>`;
+						}catch(e){ return ''; }
+					}
+				},
+				series: [{ data: [] }]
+			};
+			if (apexChart){ try{ apexChart.destroy(); }catch(e){} }
+			apexChart = new ApexCharts(apexDiv, options);
+			apexChart.render();
 			window.addEventListener('resize', ()=>{ atualizarGraficoCotacao(); });
 		} else {
-			const apexDiv = document.getElementById('graficoApex'); if (apexDiv) apexDiv.style.display = 'none';
+			if (apexDiv) apexDiv.style.display = 'none';
 			simpleCanvasCtx = canvas.getContext('2d');
 			canvas.style.display = '';
 			ajustarCanvas();
@@ -421,6 +464,7 @@
 				apexChart.updateSeries([{ data }]);
 			}
 		} else if (graficoCotacaoInstance){
+			try { graficoCotacaoInstance.data.datasets[0].label = `Cotação ${ativoGraficoAtual} (R$)`; } catch(e) {}
 			graficoCotacaoInstance.data.labels = lastLabels;
 			graficoCotacaoInstance.data.datasets[0].data = lastCandles.map(c=>c.c);
 			graficoCotacaoInstance.update('none');
