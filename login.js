@@ -96,6 +96,15 @@
 				const msg = hasText && !ok ? 'Use apenas letras e espaços, com pelo menos 2 letras.' : '';
 				setInvalid('nomeCadastro', !ok && hasText, 'errNomeCadastro', msg);
 			});
+			nomeCad.addEventListener('keydown', (e)=>{
+				if (e.ctrlKey || e.metaKey || e.altKey) return;
+				const key = e.key;
+				if (key.length === 1 && /[^A-Za-zÀ-ÖØ-öø-ÿ ]/.test(key)) e.preventDefault();
+			});
+			nomeCad.addEventListener('paste', (e)=>{
+				const text = (e.clipboardData || window.clipboardData).getData('text');
+				if (/[^A-Za-zÀ-ÖØ-öø-ÿ ]/.test(text)) e.preventDefault();
+			});
 		}
 		if (cpfCad){
 			cpfCad.addEventListener('input', ()=>{
