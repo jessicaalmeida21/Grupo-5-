@@ -7,7 +7,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="style.css?v=17" />
+	<link rel="stylesheet" href="style.css?v=18" />
 </head>
 <body>
 	<div id="login" class="login-hero">
@@ -56,7 +56,7 @@
 				</div>
 				<h2 style="margin-top:10px">Cadastrar nova conta</h2>
 				<label>Nome</label>
-				<input type="text" id="nomeCadastro" placeholder="Seu nome" pattern="[A-Za-zÀ-ÖØ-öø-ÿ ]*" inputmode="text" title="Use apenas letras e espaços" />
+				<input type="text" id="nomeCadastro" placeholder="Seu nome" pattern="[A-Za-zÀ-ÖØ-öø-ÿ ]*" inputmode="text" title="Use apenas letras e espaços" oninput="this.value=this.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ ]+/g,'')" />
 				<div id="errNomeCadastro" class="field-error"></div>
 				<label>CPF</label>
 				<input type="text" id="cpfCadastro" placeholder="00000000000" />
@@ -86,7 +86,7 @@
 			</div>
 		</div>
 	</div>
-	<script src="shared.js?v=17"></script>
-	<script src="login.js?v=17"></script>
+	<script src="shared.js?v=18"></script>
+	<script src="login.js?v=18"></script>
 </body>
 </html>
