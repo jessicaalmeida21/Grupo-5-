@@ -82,6 +82,17 @@ input, select, button {
   color: green;
 }
 
+.field-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+input.is-invalid, select.is-invalid, textarea.is-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
 .scrollable {
   max-height: 300px;
   overflow-y: auto;
