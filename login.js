@@ -18,27 +18,24 @@
 
 	function normalizeCPF(value){ return value.replace(/\D+/g,'').slice(0,11); }
 	function validateNome(nome){ return /^[A-Za-zÀ-ÖØ-öø-ÿ ]{2,}$/.test(nome.trim()); }
-	function validateCPF(cpfStr){
-		const cpf = normalizeCPF(cpfStr);
-		if (cpf.length !== 11) return false;
-		if (/^(\d)\1{10}$/.test(cpf)) return false;
-		let sum = 0; for (let i=0;i<9;i++) sum += parseInt(cpf.charAt(i),10)*(10-i);
-		let d1 = (sum*10)%11; if (d1===10) d1=0; if (d1!==parseInt(cpf.charAt(9),10)) return false;
-		sum = 0; for (let i=0;i<10;i++) sum += parseInt(cpf.charAt(i),10)*(11-i);
-		let d2 = (sum*10)%11; if (d2===10) d2=0; if (d2!==parseInt(cpf.charAt(10),10)) return false;
+	function validateCPF(cpf){
+		const d = normalizeCPF(cpf);
+		if (d.length !== 11) return false;
+		if (/^(\d)\1{10}$/.test(d)) return false;
+		let sum = 0;
+		for (let i = 0; i < 9; i++) sum += parseInt(d[i],10) * (10 - i);
+		let r = sum % 11;
+		let check1 = (r < 2) ? 0 : 11 - r;
+		if (check1 !== parseInt(d[9],10)) return false;
+		sum = 0;
+		for (let i = 0; i < 10; i++) sum += parseInt(d[i],10) * (11 - i);
+		r = sum % 11;
+		let check2 = (r < 2) ? 0 : 11 - r;
+		if (check2 !== parseInt(d[10],10)) return false;
 		return true;
 	}
 	function validateWhatsapp(w){ const d=w.replace(/\D+/g,''); return d.length===11; }
-	function validateSenhaComplexity(pwd){
-		const s = String(pwd||'');
-		if (s.length < 8) return { ok:false, msg:'Senha deve ter ao menos 8 caracteres.' };
-		const lower = /[a-z]/.test(s); const upper = /[A-Z]/.test(s); const digit = /\d/.test(s); const special = /[^A-Za-z0-9]/.test(s);
-		const categories = [lower, upper, digit, special].filter(Boolean).length;
-		const banned = ['senha','password','123456','12345678','qwerty','admin','111111','000000'];
-		if (banned.includes(s.toLowerCase())) return { ok:false, msg:'Senha muito fraca. Escolha outra.' };
-		if (categories < 3) return { ok:false, msg:'Use combinação de maiúsculas, minúsculas, números e/ou símbolos.' };
-		return { ok:true, msg:'' };
-	}
+	function validateEmail(email){
 	function validateEmail(email){
 		const e = email.trim();
 		if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(e)) return false;
@@ -51,8 +48,19 @@
 		}
 		return true;
 	}
-	function setFieldError(id, message){ const el = document.getElementById(id); if(el){ el.innerText = message || ''; } }
-	function setInvalid(inputId, invalid, messageElId, message){ const input=document.getElementById(inputId); if(input){ input.classList.toggle('is-invalid', !!invalid); } if(messageElId){ setFieldError(messageElId, invalid?message:''); } }
+	function setFieldError(id, message){
+		const el = document.getElementById(id);
+		if(el){ el.innerText = message || ''; }
+		if (id && id.indexOf('err') === 0){
+			const base = id.slice(3);
+			const inputId = base.charAt(0).toLowerCase() + base.slice(1);
+			const input = document.getElementById(inputId);
+			if (input){
+				if (message){ input.classList.add('invalid'); }
+				else { input.classList.remove('invalid'); }
+			}
+		}
+	}
 
 	document.addEventListener('DOMContentLoaded', function(){
 		document.body.classList.add('login-hero');
@@ -88,30 +96,21 @@
 		const confirmarSenhaCad = document.getElementById('confirmarSenhaCadastro');
 		if (nomeCad){
 			nomeCad.addEventListener('input', ()=>{
-				// Permite apenas letras e espaços
-				const cleaned = nomeCad.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ ]+/g,'');
-				if (cleaned !== nomeCad.value) nomeCad.value = cleaned;
-				const ok = validateNome(nomeCad.value);
-				const hasText = nomeCad.value.trim().length>0;
-				const msg = hasText && !ok ? 'Use apenas letras e espaços, com pelo menos 2 letras.' : '';
-				setInvalid('nomeCadastro', !ok && hasText, 'errNomeCadastro', msg);
-			});
-			nomeCad.addEventListener('keydown', (e)=>{
-				if (e.ctrlKey || e.metaKey || e.altKey) return;
-				const key = e.key;
-				if (key.length === 1 && /[^A-Za-zÀ-ÖØ-öø-ÿ ]/.test(key)) e.preventDefault();
-			});
-			nomeCad.addEventListener('paste', (e)=>{
-				const text = (e.clipboardData || window.clipboardData).getData('text');
-				if (/[^A-Za-zÀ-ÖØ-öø-ÿ ]/.test(text)) e.preventDefault();
+				const sanitized = nomeCad.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ ]+/g,'');
+				if (sanitized !== nomeCad.value) nomeCad.value = sanitized;
+				const t = nomeCad.value.trim();
+				const ok = validateNome(t);
+				setFieldError('errNomeCadastro', (!ok && t.length>0) ? 'Use apenas letras e espaços (mín. 2 letras).' : '');
 			});
 		}
 		if (cpfCad){
 			cpfCad.addEventListener('input', ()=>{
 				const digits = normalizeCPF(cpfCad.value);
 				cpfCad.value = aplicarMascaraCPF(digits);
-				const ok = validateCPF(digits);
-				setInvalid('cpfCadastro', !ok && digits.length>0, 'errCpfCadastro', 'CPF inválido.');
+				let m = '';
+				if (digits.length>0 && digits.length!==11) m = 'CPF deve conter 11 dígitos.';
+				else if (digits.length===11 && !validateCPF(digits)) m = 'CPF inválido.';
+				setFieldError('errCpfCadastro', m);
 			});
 		}
 		if (whatsCad){
@@ -119,21 +118,34 @@
 				const digits = whatsCad.value.replace(/\D+/g,'').slice(0,11);
 				whatsCad.value = digits;
 				const ok = validateWhatsapp(digits);
-				setInvalid('whatsappCadastro', !ok && digits.length>0, 'errWhatsappCadastro', 'WhatsApp deve conter 11 dígitos.');
+				setFieldError('errWhatsappCadastro', (!ok && digits.length>0) ? 'WhatsApp deve conter 11 dígitos.' : '');
 			});
 		}
 		if (emailCad){
 			emailCad.addEventListener('input', ()=>{
 				const ok = validateEmail(emailCad.value);
-				setInvalid('emailCadastro', !ok && emailCad.value.trim().length>0, 'errEmailCadastro', 'Email inválido.');
+				setFieldError('errEmailCadastro', (!ok && emailCad.value.trim().length>0) ? 'Email inválido.' : '');
 			});
 		}
 		if (senhaCad && confirmarSenhaCad){
 			const checkPwd = ()=>{
-				const complexity = validateSenhaComplexity(senhaCad.value);
-				setInvalid('senhaCadastro', !complexity.ok && senhaCad.value.length>0, 'errSenhaCadastro', complexity.msg);
-				const match = senhaCad.value === confirmarSenhaCad.value;
-				setInvalid('confirmarSenhaCadastro', !match && confirmarSenhaCad.value.length>0, 'errConfirmarSenhaCadastro', 'As senhas não conferem.');
+				const p = senhaCad.value;
+				let sMsg = '';
+				if (p.length < 8) sMsg = 'Senha deve ter ao menos 8 caracteres.';
+				else {
+					const hasLower = /[a-z]/.test(p);
+					const hasUpper = /[A-Z]/.test(p);
+					const hasNumber = /\d/.test(p);
+					const hasSymbol = /[^A-Za-z0-9]/.test(p);
+					const lp = p.toLowerCase();
+					const trivial = ['senha','123456','12345678','qwerty','password','abc123','111111','000000'];
+					if (trivial.includes(lp) || /senha/.test(lp)) sMsg = 'Senha muito fraca. Evite termos comuns.';
+					else if (!(hasLower && hasUpper && (hasNumber || hasSymbol))) sMsg = 'Use maiúsculas, minúsculas e número ou símbolo.';
+				}
+				setFieldError('errSenhaCadastro', sMsg);
+				let m = '';
+				if (senhaCad.value && confirmarSenhaCad.value && senhaCad.value !== confirmarSenhaCad.value) m = 'As senhas não conferem.';
+				setFieldError('errConfirmarSenhaCadastro', m);
 			};
 			senhaCad.addEventListener('input', checkPwd);
 			confirmarSenhaCad.addEventListener('input', checkPwd);
@@ -189,17 +201,28 @@
 		['errNomeCadastro','errCpfCadastro','errWhatsappCadastro','errEmailCadastro','errSenhaCadastro','errConfirmarSenhaCadastro'].forEach(id=>setFieldError(id,''));
 
 		let hasError = false;
-		if (!validateNome(nome)){ setInvalid('nomeCadastro', true, 'errNomeCadastro','Use apenas letras e espaços, com pelo menos 2 letras.'); hasError = true; } else { setInvalid('nomeCadastro', false, 'errNomeCadastro',''); }
+		if (!validateNome(nome)){ setFieldError('errNomeCadastro','Use apenas letras e espaços (mín. 2 letras).'); hasError = true; }
 		const cpfDigits = normalizeCPF(cpfRaw);
-		if (!validateCPF(cpfDigits)){ setInvalid('cpfCadastro', true, 'errCpfCadastro','CPF inválido.'); hasError = true; } else { setInvalid('cpfCadastro', false, 'errCpfCadastro',''); }
+		if (!validateCPF(cpfDigits)){ setFieldError('errCpfCadastro','CPF inválido.'); hasError = true; }
 		const whatsDigits = whatsappRaw.replace(/\D+/g,'');
-		if (!validateWhatsapp(whatsDigits)){ setInvalid('whatsappCadastro', true, 'errWhatsappCadastro','WhatsApp deve conter 11 dígitos.'); hasError = true; } else { setInvalid('whatsappCadastro', false, 'errWhatsappCadastro',''); }
-		if (!validateEmail(email)){ setInvalid('emailCadastro', true, 'errEmailCadastro','Email inválido.'); hasError = true; } else { setInvalid('emailCadastro', false, 'errEmailCadastro',''); }
-		const complexity = validateSenhaComplexity(senha);
-		if (!senha || !senha2){ setInvalid('senhaCadastro', true, 'errSenhaCadastro','Informe e confirme a senha.'); setInvalid('confirmarSenhaCadastro', true, 'errConfirmarSenhaCadastro','Informe e confirme a senha.'); hasError = true; }
+		if (!validateWhatsapp(whatsDigits)){ setFieldError('errWhatsappCadastro','WhatsApp deve conter 11 dígitos.'); hasError = true; }
+		if (!validateEmail(email)){ setFieldError('errEmailCadastro','Email inválido.'); hasError = true; }
+		if (!senha || !senha2){ setFieldError('errSenhaCadastro','Informe e confirme a senha.'); setFieldError('errConfirmarSenhaCadastro','Informe e confirme a senha.'); hasError = true; }
 		else {
-			if (!complexity.ok){ setInvalid('senhaCadastro', true, 'errSenhaCadastro', complexity.msg); hasError = true; } else { setInvalid('senhaCadastro', false, 'errSenhaCadastro',''); }
-			if (senha !== senha2){ setInvalid('confirmarSenhaCadastro', true, 'errConfirmarSenhaCadastro','As senhas não conferem.'); hasError = true; } else { setInvalid('confirmarSenhaCadastro', false, 'errConfirmarSenhaCadastro',''); }
+			let sErr = '';
+			if (senha.length < 8) sErr = 'Senha deve ter ao menos 8 caracteres.';
+			else {
+				const hasLower = /[a-z]/.test(senha);
+				const hasUpper = /[A-Z]/.test(senha);
+				const hasNumber = /\d/.test(senha);
+				const hasSymbol = /[^A-Za-z0-9]/.test(senha);
+				const ls = senha.toLowerCase();
+				const trivial = ['senha','123456','12345678','qwerty','password','abc123','111111','000000'];
+				if (trivial.includes(ls) || /senha/.test(ls)) sErr = 'Senha muito fraca. Evite termos comuns.';
+				else if (!(hasLower && hasUpper && (hasNumber || hasSymbol))) sErr = 'Use maiúsculas, minúsculas e número ou símbolo.';
+			}
+			if (sErr){ setFieldError('errSenhaCadastro', sErr); hasError = true; }
+			if (senha !== senha2){ setFieldError('errConfirmarSenhaCadastro','As senhas não conferem.'); hasError = true; }
 		}
 		if (hasError){ msg.classList.replace('success','error'); msg.innerText='Corrija os campos destacados.'; return; }
 
@@ -215,7 +238,7 @@
 		HBShared.setUsuarios(usuarios);
 		msg.classList.remove('error'); msg.classList.add('success');
 		msg.innerText = 'Conta cadastrada com sucesso! Você já pode fazer login.';
-		['nomeCadastro','cpfCadastro','whatsappCadastro','emailCadastro','senhaCadastro','confirmarSenhaCadastro'].forEach(id=>{ const el=document.getElementById(id); if(el) { el.value=''; el.classList.remove('is-invalid'); } });
+		['nomeCadastro','cpfCadastro','whatsappCadastro','emailCadastro','senhaCadastro','confirmarSenhaCadastro'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 		['errNomeCadastro','errCpfCadastro','errWhatsappCadastro','errEmailCadastro','errSenhaCadastro','errConfirmarSenhaCadastro'].forEach(id=>setFieldError(id,''));
 	}
 	window.cadastrarUsuario = cadastrarUsuario;

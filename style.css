@@ -74,6 +74,19 @@ input, select, button {
   border-radius: 5px;
 }
 
+/* Destaque visual claro para campos inválidos */
+input.invalid, select.invalid, textarea.invalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px #dc2626 inset;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: -2px;
+  margin-bottom: 6px;
+}
+
 .error {
   color: red;
 }
