@@ -122,8 +122,18 @@
 		}
 		if (emailCad){
 			emailCad.addEventListener('input', ()=>{
-				const ok = validateEmail(emailCad.value);
-				setFieldError('errEmailCadastro', (!ok && emailCad.value.trim().length>0) ? 'Email inválido.' : '');
+				const val = emailCad.value.trim();
+				let msg = '';
+				const ok = validateEmail(val);
+				if (!ok && val.length>0) msg = 'Email inválido.';
+				else if (ok){
+					try {
+						const usuarios = HBShared.getUsuarios();
+						const exists = Object.values(usuarios).some(u => (u && u.email || '').toLowerCase() === val.toLowerCase());
+						if (exists) msg = 'Email já cadastrado.';
+					} catch(e){}
+				}
+				setFieldError('errEmailCadastro', msg);
 			});
 		}
 		if (senhaCad && confirmarSenhaCad){
@@ -204,7 +214,15 @@
 		if (!validateCPF(cpfDigits)){ setFieldError('errCpfCadastro','CPF inválido.'); hasError = true; }
 		const whatsDigits = whatsappRaw.replace(/\D+/g,'');
 		if (!validateWhatsapp(whatsDigits)){ setFieldError('errWhatsappCadastro','WhatsApp deve conter 11 dígitos.'); hasError = true; }
+		let usuariosAll = null;
 		if (!validateEmail(email)){ setFieldError('errEmailCadastro','Email inválido.'); hasError = true; }
+		else {
+			try {
+				usuariosAll = HBShared.getUsuarios();
+				const exists = Object.values(usuariosAll).some(u => (u && u.email || '').toLowerCase() === email.toLowerCase());
+				if (exists){ setFieldError('errEmailCadastro','Email já cadastrado.'); hasError = true; }
+			} catch(e){}
+		}
 		if (!senha || !senha2){ setFieldError('errSenhaCadastro','Informe e confirme a senha.'); setFieldError('errConfirmarSenhaCadastro','Informe e confirme a senha.'); hasError = true; }
 		else {
 			let sErr = '';
@@ -224,7 +242,7 @@
 		}
 		if (hasError){ msg.classList.replace('success','error'); msg.innerText='Corrija os campos destacados.'; return; }
 
-		let usuarios = HBShared.getUsuarios();
+		let usuarios = usuariosAll || HBShared.getUsuarios();
 		const cpfMasked = aplicarMascaraCPF(cpfDigits);
 		if (usuarios[cpfDigits] || usuarios[cpfMasked]){ setFieldError('errCpfCadastro','CPF já cadastrado.'); msg.classList.replace('success','error'); msg.innerText='CPF já cadastrado.'; return; }
 
