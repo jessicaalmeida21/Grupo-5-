@@ -109,6 +109,13 @@
 				let m = '';
 				if (digits.length>0 && digits.length!==11) m = 'CPF deve conter 11 dígitos.';
 				else if (digits.length===11 && !validateCPF(digits)) m = 'CPF inválido.';
+				else if (digits.length===11 && validateCPF(digits)){
+					try {
+						const usuarios = HBShared.getUsuarios();
+						const masked = aplicarMascaraCPF(digits);
+						if (usuarios[digits] || usuarios[masked]) m = 'CPF já cadastrado.';
+					} catch(e){}
+				}
 				setFieldError('errCpfCadastro', m);
 			});
 		}
