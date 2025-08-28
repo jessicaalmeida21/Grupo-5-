@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Documento de Regras de Negócio – Grupo 5</title>
+	<style>
+		:root{ --fg:#111827; --muted:#4b5563; --accent:#14532d; --border:#e5e7eb; }
+		*{ box-sizing:border-box; }
+		body{ font-family: Inter, Arial, sans-serif; color:var(--fg); margin:0; }
+		.container{ max-width:960px; margin:0 auto; padding:32px 20px; }
+		h1{ font-size:28px; margin:0 0 8px; color:var(--accent); }
+		.meta{ color:var(--muted); margin-bottom:18px; }
+		h2{ font-size:18px; margin:26px 0 10px; color:#0c1b33; }
+		h3{ font-size:16px; margin:18px 0 8px; }
+		section{ border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
+		ul{ margin:8px 0 8px 20px; }
+		li{ margin:6px 0; }
+		.code{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f3f4f6; padding:1px 6px; border-radius:4px; }
+		.table{ width:100%; border-collapse:collapse; }
+		.table th,.table td{ border:1px solid var(--border); padding:8px; text-align:left; }
+		.badge{ display:inline-block; padding:2px 6px; border-radius:4px; font-size:12px; background:#e8f5e9; color:#065f46; }
+		.note{ font-size:13px; color:var(--muted); }
+		@media print{ a{ color:inherit; text-decoration:none; } .no-print{ display:none; } body{ -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+	</style>
+</head>
+<body>
+	<div class="container">
+		<header>
+			<h1>Documento de Regras de Negócio – Grupo 5</h1>
+			<div class="meta">
+				<strong>Versão:</strong> 1.0 &nbsp;|&nbsp; <strong>Data:</strong> 2025-08-23 &nbsp;|&nbsp; <strong>Responsável:</strong> Analista de Negócio<br/>
+				<strong>Sistema:</strong> Home Broker Simulado (HTML, CSS, JavaScript) &nbsp;|&nbsp; <strong>Base consultada:</strong> Página de Login e fluxos relacionados
+			</div>
+			<div class="note">Persistência local sem backend; dados salvos em <span class="code">localStorage</span>.</div>
+		</header>
+
+		<section>
+			<h2>Visão Geral</h2>
+			<p>O sistema permite simulação de operações de compra e venda de ativos com cotações dinâmicas, sem backend, persistindo dados no <span class="code">localStorage</span>. Sessões são geridas por CPF. Existem contas e usuários padrão, além do fluxo de cadastro de novas contas.</p>
+		</section>
+
+		<section>
+			<h2>Usuários, Contas e Sessão</h2>
+			<h3>Usuários padrão</h3>
+			<ul>
+				<li>Conta A: CPF <strong>111.111.111-11</strong> / Senha <strong>123</strong></li>
+				<li>Conta B: CPF <strong>222.222.222-22</strong> / Senha <strong>456</strong></li>
+			</ul>
+			<h3>Contas padrão</h3>
+			<ul>
+				<li>Conta A: saldo 100.000; carteira inicial { PETR4: 300, VALE3: 200, ITUB4: 100 }.</li>
+				<li>Conta B: saldo 10; carteira inicial { MGLU3: 100, BBAS3: 100 }.</li>
+			</ul>
+			<p><strong>Ativos padrão:</strong> PETR4, VALE3, ITUB4, BBDC4, ABEV3, MGLU3, BBAS3, LREN3 (com preços base).</p>
+			<h3>Chaves de persistência</h3>
+			<ul>
+				<li><span class="code">hb_usuarios</span></li>
+				<li><span class="code">hb_contas</span></li>
+				<li><span class="code">hb_session_cpf</span></li>
+				<li><span class="code">layoutPreferido</span> (preferência de layout)</li>
+				<li><span class="code">hb_lembrar_cpf</span> (lembrar CPF no login)</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Login</h2>
+			<p>Acesso por CPF e senha (aceita CPF com máscara ou apenas dígitos).</p>
+			<ul>
+				<li><strong>Validações:</strong> CPF com 11 dígitos (máscara em tempo real) e senha com mínimo de 3 caracteres.</li>
+				<li><strong>UX:</strong> Botão “Entrar” habilita apenas quando ambos válidos; tecla Enter dispara login. Mostrar/ocultar senha com alternância de tipo e ícone.</li>
+				<li><strong>Lembrar-me:</strong> Se marcado, armazena o CPF (somente dígitos) em <span class="code">hb_lembrar_cpf</span> e pré-preenche na próxima visita.</li>
+			</ul>
+			<p><strong>Sucesso:</strong> Salva <span class="code">hb_session_cpf</span> e redireciona para <span class="code">dashboard.html</span>.<br/>
+			<strong>Erro:</strong> Exibe “CPF ou senha inválidos.” e reabilita o botão.</p>
+			<h3>Sessão</h3>
+			<ul>
+				<li>Em telas internas, se sessão ausente, redireciona para <span class="code">login.html</span>.</li>
+				<li>Se sessão inválida (usuário não encontrado), limpa sessão e redireciona para <span class="code">index.html</span>.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Recuperação de Senha</h2>
+			<p>Modal “Recuperar senha” com campos CPF e e-mail.</p>
+			<ul>
+				<li><strong>Validações:</strong> CPF com 11 dígitos; e-mail válido.</li>
+				<li><strong>Ação:</strong> Exibe a mensagem “Se o CPF/email existirem, enviaremos instruções...” (comportamento informativo/simulador).</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Cadastro de Nova Conta</h2>
+			<p>Campos: Nome, CPF, WhatsApp, E-mail, Senha, Confirmar Senha.</p>
+			<h3>Validações</h3>
+			<ul>
+				<li><strong>Nome:</strong> apenas letras e espaços, mínimo de 2 letras; números e símbolos são bloqueados em tempo real.</li>
+				<li><strong>CPF:</strong> 11 dígitos, com dígitos verificadores válidos; rejeita sequências (ex.: 000.../111...); <strong>bloqueia CPF já cadastrado</strong> (checagem em tempo real e no envio).</li>
+				<li><strong>WhatsApp:</strong> exatamente 11 dígitos numéricos.</li>
+				<li><strong>E-mail:</strong> formato válido e <strong>único</strong> (bloqueia e-mail já cadastrado em tempo real e no envio).</li>
+				<li><strong>Senha:</strong> mínimo de 8 caracteres; requer combinação de maiúsculas, minúsculas e número ou símbolo; bloqueia termos triviais (ex.: “Senha”, “123456”, “password”).</li>
+				<li><strong>Confirmação:</strong> senhas devem coincidir.</li>
+				<li><strong>UX de erro:</strong> mensagens coerentes por campo e <span class="badge">destaque visual</span> com borda vermelha nos campos inválidos.</li>
+			</ul>
+			<h3>Efeitos</h3>
+			<ul>
+				<li>Cria conta com saldo inicial de 50.000 e carteira vazia <span class="code">{}</span>.</li>
+				<li>Persiste em <span class="code">hb_contas</span> e <span class="code">hb_usuarios</span>.</li>
+				<li>Exibe mensagem de sucesso e limpa os campos.</li>
+			</ul>
+			<p class="note"><strong>Observação:</strong> O login aceita CPF com e sem máscara; o cadastro normaliza e armazena o CPF numericamente (sem máscara) como chave principal, prevenindo duplicidades mesmo que digitado com máscara.</p>
+		</section>
+
+		<section>
+			<h2>Logout</h2>
+			<p>Ao clicar em “Sair”, remove <span class="code">hb_session_cpf</span> e redireciona para <span class="code">index.html</span>.</p>
+		</section>
+
+		<section>
+			<h2>Cotação de Ativos</h2>
+			<ul>
+				<li>Cotações simuladas atualizadas a cada 10 segundos.</li>
+				<li>Variação aleatória pequena por ativo; preço arredondado para 2 casas e nunca abaixo de 0,01.</li>
+				<li>Histórico por até 24h, com semente inicial (~90 minutos, passo de 30s) para os gráficos.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Boleta de Compra e Venda</h2>
+			<p>Campos: Tipo (Compra/Venda), Ativo, Quantidade, Valor por unidade.</p>
+			<h3>Validações</h3>
+			<ul>
+				<li><strong>Quantidade:</strong> número inteiro &gt; 0 e múltiplo de 100.</li>
+				<li><strong>Valor:</strong> numérico &gt; 0.</li>
+				<li><strong>Compra:</strong> exige saldo suficiente para quantidade × valor.</li>
+				<li><strong>Venda:</strong> exige possuir a quantidade do ativo em carteira.</li>
+			</ul>
+			<h3>Regras de aceitação/execução</h3>
+			<ul>
+				<li>Se <span class="code">valor == cotação</span>: Executada imediatamente.</li>
+				<li>Se <span class="code">|valor − cotação| ≤ 5</span>: Aceita (pendente até reavaliação).</li>
+				<li>Se <span class="code">|valor − cotação| &gt; 5</span>: Rejeitada (registrada com status Rejeitada).</li>
+			</ul>
+			<p>Mensagens de retorno são exibidas em tela.</p>
+		</section>
+
+		<section>
+			<h2>Atualização de Carteira e Saldo</h2>
+			<ul>
+				<li>Compra executada: diminui saldo em quantidade × valor e adiciona a quantidade do ativo.</li>
+				<li>Venda executada: aumenta saldo em quantidade × valor e subtrai a quantidade do ativo.</li>
+				<li>Se a quantidade de um ativo zera, ele é removido da carteira.</li>
+				<li>Carteira e saldo são refletidos imediatamente na UI após execuções.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Livro de Ofertas (Book de Cotações)</h2>
+			<ul>
+				<li>Tabela com os ativos e preços atuais.</li>
+				<li>Atualizada automaticamente a cada 10 segundos (mesmo ritmo das cotações).</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Book de Ordens</h2>
+			<p>Registra todas as ordens com: Tipo, Ativo, Quantidade, Valor, Cotação atual, Total, Status, Data/Hora.</p>
+			<p>Ação “Cancelar” disponível apenas para ordens com status “Aceita”.</p>
+			<h3>Status possíveis</h3>
+			<ul>
+				<li><strong>Aceita:</strong> válida, aguardando cotação.</li>
+				<li><strong>Executada:</strong> executada com sucesso.</li>
+				<li><strong>Rejeitada:</strong> diferença de preço maior que R$ 5.</li>
+				<li><strong>Cancelada:</strong> cancelada manualmente.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Cancelamento de Ordem</h2>
+			<ul>
+				<li>Apenas ordens “Aceita” podem ser canceladas.</li>
+				<li>Ao cancelar: muda para “Cancelada”; não altera carteira nem saldo.</li>
+				<li>Book é atualizado imediatamente.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Verificação Automática das Ordens Aceitas</h2>
+			<ul>
+				<li>A cada 10 segundos, reavalia ordens “Aceita” com a cotação corrente.</li>
+				<li><strong>Disparo de execução:</strong> Compra quando cotação ≤ valor; Venda quando cotação ≥ valor.</li>
+				<li>Ao executar: aplica efeitos em carteira/saldo, atualiza status e data/hora, insere no Extrato e atualiza as telas (Carteira, Book, Ordens, Extrato, Gráficos).</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Extrato de Operações</h2>
+			<p>Exibe apenas ordens Executadas.</p>
+			<p>Campos: Data/Hora, Tipo, Ativo, Quantidade, Valor Total (R$).</p>
+			<p><strong>Exportação:</strong> CSV com cabeçalho padrão; nome do arquivo com o nome da conta.</p>
+		</section>
+
+		<section>
+			<h2>Alertas de Preço (Dashboard)</h2>
+			<p>Configuração via checkbox “alerta de preço” e campo “preço alvo”.</p>
+			<ul>
+				<li>Para ativar, o preço alvo deve ser numérico &gt; 0.</li>
+				<li>Após execução de ordem, alerta quando: Compra (preçoAtual ≤ preçoAlvo), Venda (preçoAtual ≥ preçoAlvo).</li>
+				<li>Alerta exibido via <span class="code">alert()</span> do navegador.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Preferências de Layout</h2>
+			<ul>
+				<li>Opções: <em>default</em>, <em>light</em>, <em>dark</em>.</li>
+				<li>Persistência em <span class="code">layoutPreferido</span>; efeitos visuais imediatos (classe <span class="code">dark-mode</span> e estilos).</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Gráficos de Cotação</h2>
+			<ul>
+				<li><strong>Principal:</strong> preferência por Chart.js (linha de fechamento). Fallback Canvas 2D simples (candles e linha).</li>
+				<li>Seleção de ativo para o gráfico (<span class="code">ativoGrafico</span>).</li>
+				<li>Resolução configurável (<span class="code">resolucaoGrafico</span>) agregando OHLC por janela.</li>
+				<li>Histórico: semente inicial (~90 minutos, passo 30s); atualização a cada 10s; responsivo ao <em>resize</em>.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Análise de Operações (Dashboard)</h2>
+			<p>Modal exibido quando há ao menos uma operação executada.</p>
+			<p>Gráfico de barras (Chart.js) sumarizando Quantidade Operada por Ativo com base no Extrato.</p>
+		</section>
+
+		<section>
+			<h2>Alteração de Senha (Dashboard)</h2>
+			<ul>
+				<li>Campo “Nova Senha”; validação de mínimo 3 caracteres.</li>
+				<li>Ao confirmar: atualiza a senha do usuário corrente em <span class="code">hb_usuarios</span>, limpa o campo e exibe sucesso.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Mensageria e UX</h2>
+			<ul>
+				<li>Estados de carregamento no login (botão “Entrar” com classe <span class="code">loading</span> durante validação simulada).</li>
+				<li>Mensagens de erro/sucesso em validações de login, cadastro, boleta, cancelamento, alteração de senha e exportações.</li>
+				<li>Acessibilidade/atalhos: tecla Enter aciona login quando válido.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Regras Técnicas e Limitações</h2>
+			<ul>
+				<li>Não há backend; todo armazenamento é <span class="code">localStorage</span>.</li>
+				<li>A sessão é baseada na chave <span class="code">hb_session_cpf</span> e na existência do usuário em <span class="code">hb_usuarios</span>.</li>
+				<li>As cotações são exclusivamente simuladas e não refletem o mercado real.</li>
+				<li>O filtro “ordens do dia” considera o timestamp salvo na ordem.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Segurança</h2>
+			<ul>
+				<li>Redirecionamento para login quando não há sessão válida.</li>
+				<li>Limpeza de sessão se o usuário associado ao CPF não existir mais.</li>
+				<li>Dados sensíveis (senha) em <span class="code">localStorage</span> são apenas para fins didáticos (não recomendado em produção).</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Tabelas e Campos‑Chave</h2>
+			<table class="table">
+				<thead><tr><th>Entidade</th><th>Estrutura</th></tr></thead>
+				<tbody>
+					<tr><td>Usuário</td><td><span class="code">hb_usuarios[cpf]</span>: { senha, conta, nome?, whatsapp?, email? }</td></tr>
+					<tr><td>Conta</td><td><span class="code">hb_contas[id]</span>: { nome, saldo, carteira: { [ticker]: quantidade } }</td></tr>
+					<tr><td>Ordem</td><td>{ id, timestamp, dataHora, tipo, ativo, qtd, valor, cotacao, total, status }</td></tr>
+					<tr><td>Extrato</td><td>Lista de ordens Executadas com os campos acima</td></tr>
+				</tbody>
+			</table>
+		</section>
+
+		<section>
+			<h2>Navegação</h2>
+			<ul>
+				<li><span class="code">index.html</span>: landing; CTAs para login e cadastro.</li>
+				<li><span class="code">login.html</span>: autenticação, “lembrar‑me”, “recuperar senha”, “cadastrar”.</li>
+				<li><span class="code">dashboard.html</span>: carteira, boleta, book, ordens, extrato, gráficos, análise, preferências, alertas e alteração de senha.</li>
+				<li>“Sair”: encerra sessão e volta ao <span class="code">index.html</span>.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Regras de Aceite de Qualidade (QA)</h2>
+			<ul>
+				<li><strong>Login:</strong> aceita CPF com e sem máscara; valida 11 dígitos e senha ≥ 3.</li>
+				<li><strong>Cadastro:</strong> bloqueia CPF já cadastrado; exige e-mail válido e único; senhas iguais; nome somente letras/espaços; WhatsApp 11 dígitos; senha forte (≥8, com maiúsculas/minúsculas e número ou símbolo; sem termos triviais); erro destacado por campo.</li>
+				<li><strong>Boleta:</strong> quantidade múltipla de 100 e &gt; 0; valor &gt; 0; compra bloqueada sem saldo; venda bloqueada sem posição.</li>
+				<li><strong>Cotações (10s):</strong> nunca negativas; 2 casas; reavalia ordens “Aceita” e atualiza carteira/saldo/extrato.</li>
+				<li><strong>Exportações:</strong> extrato CSV com apenas Executadas; ordens do dia (JSON/XLSX) incluem todas com status.</li>
+				<li><strong>Preferências/Alertas:</strong> layout persiste; alerta requer preço alvo válido e dispara conforme tipo.</li>
+			</ul>
+		</section>
+
+		<section>
+			<h2>Alterações desta versão</h2>
+			<ul>
+				<li>Validação de <strong>Nome</strong> (apenas letras e espaços) com sanitização em tempo real.</li>
+				<li>Destaque visual de campos inválidos com borda vermelha e mensagens específicas por campo.</li>
+				<li>Validação de <strong>CPF</strong> com dígitos verificadores e bloqueio de CPF já cadastrado (tempo real e envio).</li>
+				<li>Validação de <strong>WhatsApp</strong> estrita: 11 dígitos.</li>
+				<li><strong>E‑mail</strong> único: verificação de duplicidade em tempo real e no envio; correção de validação.</li>
+				<li><strong>Senha</strong> forte: ≥8, combinação de maiúsculas/minúsculas e número ou símbolo; bloqueio de termos triviais; conferência de confirmação.</li>
+				<li>Correção de função <span class="code">validateEmail</span> duplicada.</li>
+			</ul>
+		</section>
+
+		<footer class="note" style="margin-top:24px">Documento gerado para publicação em GitHub Pages.</footer>
+	</div>
+</body>
+</html>
