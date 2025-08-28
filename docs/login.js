@@ -36,7 +36,6 @@
 	}
 	function validateWhatsapp(w){ const d=w.replace(/\D+/g,''); return d.length===11; }
 	function validateEmail(email){
-	function validateEmail(email){
 		const e = email.trim();
 		if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(e)) return false;
 		const domain = e.split('@')[1].toLowerCase();
