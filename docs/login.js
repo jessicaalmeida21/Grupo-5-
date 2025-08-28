@@ -18,8 +18,24 @@
 
 	function normalizeCPF(value){ return value.replace(/\D+/g,'').slice(0,11); }
 	function validateNome(nome){ return /^[A-Za-zÀ-ÖØ-öø-ÿ ]{2,}$/.test(nome.trim()); }
-	function validateCPF(cpf){ return normalizeCPF(cpf).length === 11; }
-	function validateWhatsapp(w){ const d=w.replace(/\D+/g,''); return d.length===10 || d.length===11; }
+	function validateCPF(cpf){
+		const d = normalizeCPF(cpf);
+		if (d.length !== 11) return false;
+		if (/^(\d)\1{10}$/.test(d)) return false;
+		let sum = 0;
+		for (let i = 0; i < 9; i++) sum += parseInt(d[i],10) * (10 - i);
+		let r = sum % 11;
+		let check1 = (r < 2) ? 0 : 11 - r;
+		if (check1 !== parseInt(d[9],10)) return false;
+		sum = 0;
+		for (let i = 0; i < 10; i++) sum += parseInt(d[i],10) * (11 - i);
+		r = sum % 11;
+		let check2 = (r < 2) ? 0 : 11 - r;
+		if (check2 !== parseInt(d[10],10)) return false;
+		return true;
+	}
+	function validateWhatsapp(w){ const d=w.replace(/\D+/g,''); return d.length===11; }
+	function validateEmail(email){
 	function validateEmail(email){
 		const e = email.trim();
 		if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(e)) return false;
@@ -32,7 +48,19 @@
 		}
 		return true;
 	}
-	function setFieldError(id, message){ const el = document.getElementById(id); if(el){ el.innerText = message || ''; } }
+	function setFieldError(id, message){
+		const el = document.getElementById(id);
+		if(el){ el.innerText = message || ''; }
+		if (id && id.indexOf('err') === 0){
+			const base = id.slice(3);
+			const inputId = base.charAt(0).toLowerCase() + base.slice(1);
+			const input = document.getElementById(inputId);
+			if (input){
+				if (message){ input.classList.add('invalid'); }
+				else { input.classList.remove('invalid'); }
+			}
+		}
+	}
 
 	document.addEventListener('DOMContentLoaded', function(){
 		document.body.classList.add('login-hero');
@@ -68,16 +96,21 @@
 		const confirmarSenhaCad = document.getElementById('confirmarSenhaCadastro');
 		if (nomeCad){
 			nomeCad.addEventListener('input', ()=>{
-				const ok = validateNome(nomeCad.value);
-				setFieldError('errNomeCadastro', (!ok && nomeCad.value.trim().length>0) ? 'Informe pelo menos 2 letras.' : '');
+				const sanitized = nomeCad.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ ]+/g,'');
+				if (sanitized !== nomeCad.value) nomeCad.value = sanitized;
+				const t = nomeCad.value.trim();
+				const ok = validateNome(t);
+				setFieldError('errNomeCadastro', (!ok && t.length>0) ? 'Use apenas letras e espaços (mín. 2 letras).' : '');
 			});
 		}
 		if (cpfCad){
 			cpfCad.addEventListener('input', ()=>{
 				const digits = normalizeCPF(cpfCad.value);
 				cpfCad.value = aplicarMascaraCPF(digits);
-				const ok = validateCPF(digits);
-				setFieldError('errCpfCadastro', (!ok && digits.length>0) ? 'CPF deve ter 11 dígitos numéricos.' : '');
+				let m = '';
+				if (digits.length>0 && digits.length!==11) m = 'CPF deve conter 11 dígitos.';
+				else if (digits.length===11 && !validateCPF(digits)) m = 'CPF inválido.';
+				setFieldError('errCpfCadastro', m);
 			});
 		}
 		if (whatsCad){
@@ -85,7 +118,7 @@
 				const digits = whatsCad.value.replace(/\D+/g,'').slice(0,11);
 				whatsCad.value = digits;
 				const ok = validateWhatsapp(digits);
-				setFieldError('errWhatsappCadastro', (!ok && digits.length>0) ? 'Informe 10 ou 11 dígitos.' : '');
+				setFieldError('errWhatsappCadastro', (!ok && digits.length>0) ? 'WhatsApp deve conter 11 dígitos.' : '');
 			});
 		}
 		if (emailCad){
@@ -96,8 +129,22 @@
 		}
 		if (senhaCad && confirmarSenhaCad){
 			const checkPwd = ()=>{
-				setFieldError('errSenhaCadastro','');
-				const m = senhaCad.value === confirmarSenhaCad.value ? '' : 'As senhas não conferem.';
+				const p = senhaCad.value;
+				let sMsg = '';
+				if (p.length < 8) sMsg = 'Senha deve ter ao menos 8 caracteres.';
+				else {
+					const hasLower = /[a-z]/.test(p);
+					const hasUpper = /[A-Z]/.test(p);
+					const hasNumber = /\d/.test(p);
+					const hasSymbol = /[^A-Za-z0-9]/.test(p);
+					const lp = p.toLowerCase();
+					const trivial = ['senha','123456','12345678','qwerty','password','abc123','111111','000000'];
+					if (trivial.includes(lp) || /senha/.test(lp)) sMsg = 'Senha muito fraca. Evite termos comuns.';
+					else if (!(hasLower && hasUpper && (hasNumber || hasSymbol))) sMsg = 'Use maiúsculas, minúsculas e número ou símbolo.';
+				}
+				setFieldError('errSenhaCadastro', sMsg);
+				let m = '';
+				if (senhaCad.value && confirmarSenhaCad.value && senhaCad.value !== confirmarSenhaCad.value) m = 'As senhas não conferem.';
 				setFieldError('errConfirmarSenhaCadastro', m);
 			};
 			senhaCad.addEventListener('input', checkPwd);
@@ -153,14 +200,29 @@
 		['errNomeCadastro','errCpfCadastro','errWhatsappCadastro','errEmailCadastro','errSenhaCadastro','errConfirmarSenhaCadastro'].forEach(id=>setFieldError(id,''));
 
 		let hasError = false;
-		if (!validateNome(nome)){ setFieldError('errNomeCadastro','Nome deve ter ao menos 2 letras.'); hasError = true; }
+		if (!validateNome(nome)){ setFieldError('errNomeCadastro','Use apenas letras e espaços (mín. 2 letras).'); hasError = true; }
 		const cpfDigits = normalizeCPF(cpfRaw);
-		if (!validateCPF(cpfDigits)){ setFieldError('errCpfCadastro','CPF deve ter 11 dígitos numéricos.'); hasError = true; }
+		if (!validateCPF(cpfDigits)){ setFieldError('errCpfCadastro','CPF inválido.'); hasError = true; }
 		const whatsDigits = whatsappRaw.replace(/\D+/g,'');
-		if (!validateWhatsapp(whatsDigits)){ setFieldError('errWhatsappCadastro','WhatsApp deve conter 10 ou 11 dígitos.'); hasError = true; }
+		if (!validateWhatsapp(whatsDigits)){ setFieldError('errWhatsappCadastro','WhatsApp deve conter 11 dígitos.'); hasError = true; }
 		if (!validateEmail(email)){ setFieldError('errEmailCadastro','Email inválido.'); hasError = true; }
 		if (!senha || !senha2){ setFieldError('errSenhaCadastro','Informe e confirme a senha.'); setFieldError('errConfirmarSenhaCadastro','Informe e confirme a senha.'); hasError = true; }
-		else if (senha !== senha2){ setFieldError('errConfirmarSenhaCadastro','As senhas não conferem.'); hasError = true; }
+		else {
+			let sErr = '';
+			if (senha.length < 8) sErr = 'Senha deve ter ao menos 8 caracteres.';
+			else {
+				const hasLower = /[a-z]/.test(senha);
+				const hasUpper = /[A-Z]/.test(senha);
+				const hasNumber = /\d/.test(senha);
+				const hasSymbol = /[^A-Za-z0-9]/.test(senha);
+				const ls = senha.toLowerCase();
+				const trivial = ['senha','123456','12345678','qwerty','password','abc123','111111','000000'];
+				if (trivial.includes(ls) || /senha/.test(ls)) sErr = 'Senha muito fraca. Evite termos comuns.';
+				else if (!(hasLower && hasUpper && (hasNumber || hasSymbol))) sErr = 'Use maiúsculas, minúsculas e número ou símbolo.';
+			}
+			if (sErr){ setFieldError('errSenhaCadastro', sErr); hasError = true; }
+			if (senha !== senha2){ setFieldError('errConfirmarSenhaCadastro','As senhas não conferem.'); hasError = true; }
+		}
 		if (hasError){ msg.classList.replace('success','error'); msg.innerText='Corrija os campos destacados.'; return; }
 
 		let usuarios = HBShared.getUsuarios();
